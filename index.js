@@ -15,7 +15,11 @@ const {
   joinVoiceChannel,
 } = require("@discordjs/voice");
 
-const { Player } = require("discord-player");
+const {
+  Player,
+  QueryType,
+} = require("discord-player");
+
 const { DefaultExtractors } = require("@discord-player/extractor");
 
 // ---------------- EXPRESS SERVER ----------------
@@ -38,20 +42,22 @@ const client = new Client({
 });
 
 const player = new Player(client);
-
 let connection;
 
-// LOAD EXTRACTORS (IMPORTANT FIX)
+// ---------------- LOAD EXTRACTORS (CRITICAL FIX) ----------------
 (async () => {
-  await player.extractors.loadMulti(DefaultExtractors);
+  try {
+    await player.extractors.loadMulti(DefaultExtractors);
+    console.log("Extractors loaded");
+  } catch (err) {
+    console.error("Extractor load error:", err);
+  }
 })();
 
 // ---------------- READY EVENT ----------------
 client.once(Events.ClientReady, async () => {
-
   console.log(`Logged in as ${client.user.tag}`);
 
-  // ---------------- REGISTER COMMANDS ----------------
   const commands = [
     new SlashCommandBuilder()
       .setName("prodhan")
@@ -86,11 +92,9 @@ client.once(Events.ClientReady, async () => {
 
   // ---------------- JOIN VC ----------------
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
-
   if (!guild) return console.log("Guild not found");
 
   const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-
   if (!channel) return console.log("Voice channel not found");
 
   connection = joinVoiceChannel({
@@ -120,11 +124,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (interaction.commandName === "play") {
 
     const query = interaction.options.getString("song");
-
     const voiceChannel = interaction.member.voice.channel;
 
     if (!voiceChannel) {
-      return interaction.reply("❌ Join a voice channel first.");
+      return interaction.reply("❌ You must join a voice channel first.");
     }
 
     await interaction.reply(`🔍 Searching: **${query}**`);
@@ -133,12 +136,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const result = await player.search(query, {
         requestedBy: interaction.user,
+        searchEngine: QueryType.AUTO,
       });
 
-      // DEBUG (important if anything breaks)
-      console.log("SEARCH RESULT:", result);
+      console.log("SEARCH RESULT:", result.tracks.length);
 
-      if (!result || !result.tracks || result.tracks.length === 0) {
+      if (!result || !result.tracks.length) {
         return interaction.followUp("❌ No song found.");
       }
 
