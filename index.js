@@ -15,12 +15,11 @@ const {
   joinVoiceChannel,
   createAudioPlayer,
   createAudioResource,
-  AudioPlayerStatus,
 } = require("@discordjs/voice");
 
 const play = require("play-dl");
 
-// ---------------- EXPRESS ----------------
+// ---------------- EXPRESS SERVER ----------------
 const app = express();
 
 app.get("/", (req, res) => {
@@ -42,15 +41,17 @@ const client = new Client({
 let connection;
 const player = createAudioPlayer();
 
-// ---------------- READY ----------------
+// ---------------- READY EVENT ----------------
 client.once(Events.ClientReady, async () => {
+
   console.log(`Logged in as ${client.user.tag}`);
 
-  // REGISTER COMMANDS
+  // ---------------- REGISTER COMMANDS ----------------
   const commands = [
+
     new SlashCommandBuilder()
       .setName("prodhan")
-      .setDescription("Sends image"),
+      .setDescription("Send image"),
 
     new SlashCommandBuilder()
       .setName("play")
@@ -58,31 +59,47 @@ client.once(Events.ClientReady, async () => {
       .addStringOption(option =>
         option
           .setName("song")
-          .setDescription("Song name or YouTube URL")
+          .setDescription("Song name or YouTube link")
           .setRequired(true)
       ),
+
   ].map(command => command.toJSON());
 
-  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+  const rest = new REST({ version: "10" })
+    .setToken(process.env.TOKEN);
 
-  await rest.put(
-    Routes.applicationGuildCommands(
-      process.env.CLIENT_ID,
-      process.env.GUILD_ID
-    ),
-    { body: commands }
-  );
+  try {
 
-  console.log("Slash commands registered!");
+    await rest.put(
+      Routes.applicationGuildCommands(
+        process.env.CLIENT_ID,
+        process.env.GUILD_ID
+      ),
+      { body: commands }
+    );
 
-  // JOIN VC
+    console.log("Slash commands registered!");
+
+  } catch (err) {
+
+    console.error("Command registration error:", err);
+
+  }
+
+  // ---------------- JOIN VC ----------------
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
 
-  if (!guild) return;
+  if (!guild) {
+    console.log("Guild not found");
+    return;
+  }
 
   const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
 
-  if (!channel) return;
+  if (!channel) {
+    console.log("Voice channel not found");
+    return;
+  }
 
   connection = joinVoiceChannel({
     channelId: channel.id,
@@ -93,48 +110,89 @@ client.once(Events.ClientReady, async () => {
 
   connection.subscribe(player);
 
-  console.log("Joined VC");
+  console.log("Joined VC successfully");
+
 });
 
-// ---------------- COMMANDS ----------------
-client.on(Events.InteractionCreate, async interaction => {
+// ---------------- COMMAND HANDLER ----------------
+client.on(Events.InteractionCreate, async (interaction) => {
+
   if (!interaction.isChatInputCommand()) return;
 
-  // /prodhan
+  // ---------------- /prodhan ----------------
   if (interaction.commandName === "prodhan") {
+
     await interaction.reply({
-      content: "Here you go 👇",
+      content: "👅👅👅",
       files: [
-        "https://i.imgur.com/yourImage.png"
+        ".image/images/prodhan.jpeg"
       ],
     });
+
   }
 
-  // /play
+  // ---------------- /play ----------------
   if (interaction.commandName === "play") {
+
     const query = interaction.options.getString("song");
 
-    await interaction.reply(`Searching for: ${query}`);
+    await interaction.reply(`🔍 Searching for: ${query}`);
 
     try {
-      const search = await play.search(query, { limit: 1 });
 
-      if (!search.length) {
-        return interaction.followUp("No results found.");
+      let url;
+
+      // Check if query is valid YouTube URL
+      const validate = play.yt_validate(query);
+
+      if (validate === "video") {
+
+        url = query;
+
+      } else {
+
+        // Search YouTube
+        const results = await play.search(query, {
+          limit: 1,
+          source: { youtube: "video" }
+        });
+
+        if (!results || results.length === 0) {
+          return interaction.followUp("❌ Song not found.");
+        }
+
+        url = results[0].url;
       }
 
-      const stream = await play.stream(search[0].url);
+      // Stream audio
+      const stream = await play.stream(url);
 
-      const resource = createAudioResource(stream.stream, {
-        inputType: stream.type,
-      });
+      const resource = createAudioResource(
+        stream.stream,
+        {
+          inputType: stream.type,
+        }
+      );
 
       player.play(resource);
 
-      interaction.followUp(`🎵 Playing: ${search[0].title}`);
+      connection.subscribe(player);
+
+      // Get song info
+      const info = await play.video_basic_info(url);
+
+      await interaction.followUp(
+        `🎵 Now playing: ${info.video_details.title}`
+      );
+
     } catch (err) {
+
       console.error(err);
-      interaction.followUp("Error playing song.");
+
+      await interaction.followUp(
+        "❌ Error playing song."
+      );
+
     }
   }
 });
