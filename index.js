@@ -1,7 +1,9 @@
 require("dotenv").config();
 
 const express = require("express");
+const path = require("path");
 
+// ---------------- DISCORD IMPORTS ----------------
 const {
   Client,
   GatewayIntentBits,
@@ -15,13 +17,6 @@ const {
   joinVoiceChannel,
 } = require("@discordjs/voice");
 
-const {
-  Player,
-  QueryType,
-} = require("discord-player");
-
-const { DefaultExtractors } = require("@discord-player/extractor");
-
 // ---------------- EXPRESS SERVER ----------------
 const app = express();
 
@@ -33,6 +28,15 @@ app.listen(process.env.PORT || 3000, () => {
   console.log("Web server running");
 });
 
+// ---------------- IMAGE ROULETTE ----------------
+const prodhanImages = [
+  "./images/prodhan1.jpeg",
+  "./images/prodhan2.jpeg",
+  "./images/prodhan3.jpeg",
+  "./images/prodhan4.jpeg",
+  "./images/prodhan5.jpeg",
+];
+
 // ---------------- DISCORD CLIENT ----------------
 const client = new Client({
   intents: [
@@ -41,55 +45,17 @@ const client = new Client({
   ],
 });
 
-const player = new Player(client, {
-  leaveOnEmpty: false,
-  leaveOnEnd: false,
-  leaveOnStop: false,
-});
-
 let connection;
-
-// ---------------- LOAD EXTRACTORS ----------------
-(async () => {
-  try {
-    await player.extractors.loadMulti(DefaultExtractors);
-    console.log("Extractors loaded");
-  } catch (err) {
-    console.error("Extractor load error:", err);
-  }
-})();
-
-// ---------------- PLAYER ERROR HANDLERS (IMPORTANT FIX) ----------------
-player.events.on("playerError", (queue, error) => {
-  console.log("PLAYER ERROR:", error);
-});
-
-player.events.on("error", (queue, error) => {
-  console.log("QUEUE ERROR:", error);
-});
-
-player.events.on("emptyQueue", (queue) => {
-  console.log("Queue empty - staying in VC");
-});
 
 // ---------------- READY EVENT ----------------
 client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
+  // ---------------- SLASH COMMANDS ----------------
   const commands = [
     new SlashCommandBuilder()
       .setName("prodhan")
-      .setDescription("Send image"),
-
-    new SlashCommandBuilder()
-      .setName("play")
-      .setDescription("Play music")
-      .addStringOption(option =>
-        option
-          .setName("song")
-          .setDescription("Song name or YouTube link")
-          .setRequired(true)
-      ),
+      .setDescription("Send random roulette image"),
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
@@ -108,7 +74,7 @@ client.once(Events.ClientReady, async () => {
     console.error("Command register error:", err);
   }
 
-  // ---------------- JOIN VC ----------------
+  // ---------------- JOIN VOICE CHANNEL ----------------
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
   if (!guild) return console.log("Guild not found");
 
@@ -127,74 +93,18 @@ client.once(Events.ClientReady, async () => {
 
 // ---------------- COMMAND HANDLER ----------------
 client.on(Events.InteractionCreate, async (interaction) => {
-
   if (!interaction.isChatInputCommand()) return;
 
-  // ---------------- /prodhan ----------------
+  // ---------------- /prodhan ROULETTE ----------------
   if (interaction.commandName === "prodhan") {
+
+    const randomImage =
+      prodhanImages[Math.floor(Math.random() * prodhanImages.length)];
+
     return interaction.reply({
-      content: "👅👅👅",
-      files: ["./images/prodhan.jpeg"],
+      content: "🎰 Rolling the roulette...",
+      files: [randomImage],
     });
-  }
-
-  // ---------------- /play ----------------
-  if (interaction.commandName === "play") {
-
-    const query = interaction.options.getString("song");
-    const voiceChannel = interaction.member.voice.channel;
-
-    if (!voiceChannel) {
-      return interaction.reply("❌ You must join a voice channel first.");
-    }
-
-    await interaction.reply(`🔍 Searching: **${query}**`);
-
-    try {
-
-      const result = await player.search(query, {
-        requestedBy: interaction.user,
-        searchEngine: QueryType.AUTO,
-      });
-
-      console.log("SEARCH RESULT:", result.tracks.length);
-
-      if (!result || !result.tracks.length) {
-        return interaction.followUp("❌ No song found.");
-      }
-
-      const track = result.tracks[0];
-
-      let queue = player.nodes.get(interaction.guild);
-
-      if (!queue) {
-        queue = player.nodes.create(interaction.guild, {
-          metadata: {
-            channel: interaction.channel,
-          },
-          selfDeaf: true,
-          leaveOnEmpty: false,
-          leaveOnEnd: false,
-          leaveOnStop: false,
-        });
-      }
-
-      if (!queue.connection) {
-        await queue.connect(voiceChannel);
-      }
-
-      queue.addTrack(track);
-
-      if (!queue.node.isPlaying()) {
-        await queue.node.play();
-      }
-
-      return interaction.followUp(`🎵 Now playing: **${track.title}**`);
-
-    } catch (err) {
-      console.error("PLAY ERROR:", err);
-      return interaction.followUp("❌ Failed to play song.");
-    }
   }
 });
 
