@@ -55,7 +55,7 @@ client.once(Events.ClientReady, async () => {
 
     new SlashCommandBuilder()
       .setName("play")
-      .setDescription("Play music from YouTube")
+      .setDescription("Play music from YouTube or search")
       .addStringOption(option =>
         option
           .setName("song")
@@ -125,7 +125,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await interaction.reply({
       content: "👅👅👅",
       files: [
-        ".images/prodhan.jpeg"
+        "./images/prodhan.jpeg"
       ],
     });
 
@@ -134,46 +134,50 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // ---------------- /play ----------------
   if (interaction.commandName === "play") {
 
-  const query = interaction.options.getString("song");
+    const query = interaction.options.getString("song");
 
-  await interaction.reply(`🔍 Searching: ${query}`);
+    await interaction.reply(`🔍 Searching: ${query}`);
 
-  try {
+    try {
 
-    let url = query;
+      let url;
 
-    // If it's NOT a YouTube link → search
-    if (!play.yt_validate(query)) {
+      // If it's a direct link
+      if (query.includes("http")) {
+        url = query;
 
-      const results = await play.search(query, {
-        limit: 1,
-      });
+      } else {
 
-      if (!results || results.length === 0) {
-        return interaction.followUp("❌ Song not found.");
+        // Search YouTube
+        const results = await play.search(query, { limit: 1 });
+
+        if (!results || results.length === 0) {
+          return interaction.followUp("❌ Song not found.");
+        }
+
+        url = results[0].url;
       }
 
-      url = results[0].url;
+      const stream = await play.stream(url);
+
+      const resource = createAudioResource(stream.stream, {
+        inputType: stream.type,
+      });
+
+      player.play(resource);
+      connection.subscribe(player);
+
+      const info = await play.video_basic_info(url);
+
+      await interaction.followUp(
+        `🎵 Now playing: ${info.video_details.title}`
+      );
+
+    } catch (err) {
+      console.error(err);
+      interaction.followUp("❌ Error playing song.");
     }
-
-    const stream = await play.stream(url);
-
-    const resource = createAudioResource(stream.stream, {
-      inputType: stream.type,
-    });
-
-    player.play(resource);
-    connection.subscribe(player);
-
-    const info = await play.video_basic_info(url);
-
-    await interaction.followUp(`🎵 Now playing: ${info.video_details.title}`);
-
-  } catch (err) {
-    console.error(err);
-    interaction.followUp("❌ Error playing song.");
   }
-}
 });
 
 // ---------------- LOGIN ----------------
