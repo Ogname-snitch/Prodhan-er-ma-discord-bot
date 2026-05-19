@@ -13,22 +13,9 @@ const {
 
 const {
   joinVoiceChannel,
-  createAudioPlayer,
-  createAudioResource,
 } = require("@discordjs/voice");
 
-const play = require("play-dl");
-
-(async () => {
-  await play.setToken({
-    youtube: {
-      cookie: process.env.YT_COOKIE || null
-    }
-  });
-})();
-
-const ffmpegPath = require("ffmpeg-static");
-process.env.FFMPEG_PATH = ffmpegPath;
+const { Player } = require("discord-player");
 
 // ---------------- EXPRESS SERVER ----------------
 const app = express();
@@ -49,8 +36,9 @@ const client = new Client({
   ],
 });
 
+const player = new Player(client);
+
 let connection;
-const player = createAudioPlayer();
 
 // ---------------- READY EVENT ----------------
 client.once(Events.ClientReady, async () => {
@@ -59,58 +47,41 @@ client.once(Events.ClientReady, async () => {
 
   // ---------------- REGISTER COMMANDS ----------------
   const commands = [
-
     new SlashCommandBuilder()
       .setName("prodhan")
       .setDescription("Send image"),
 
     new SlashCommandBuilder()
       .setName("play")
-      .setDescription("Play music from YouTube or search")
+      .setDescription("Play music")
       .addStringOption(option =>
         option
           .setName("song")
           .setDescription("Song name or YouTube link")
           .setRequired(true)
       ),
+  ].map(c => c.toJSON());
 
-  ].map(command => command.toJSON());
+  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-  const rest = new REST({ version: "10" })
-    .setToken(process.env.TOKEN);
+  await rest.put(
+    Routes.applicationGuildCommands(
+      process.env.CLIENT_ID,
+      process.env.GUILD_ID
+    ),
+    { body: commands }
+  );
 
-  try {
-
-    await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID,
-        process.env.GUILD_ID
-      ),
-      { body: commands }
-    );
-
-    console.log("Slash commands registered!");
-
-  } catch (err) {
-
-    console.error("Command registration error:", err);
-
-  }
+  console.log("Slash commands registered!");
 
   // ---------------- JOIN VC ----------------
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
 
-  if (!guild) {
-    console.log("Guild not found");
-    return;
-  }
+  if (!guild) return console.log("Guild not found");
 
   const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
 
-  if (!channel) {
-    console.log("Voice channel not found");
-    return;
-  }
+  if (!channel) return console.log("Voice channel not found");
 
   connection = joinVoiceChannel({
     channelId: channel.id,
@@ -119,10 +90,7 @@ client.once(Events.ClientReady, async () => {
     selfDeaf: true,
   });
 
-  connection.subscribe(player);
-
   console.log("Joined VC successfully");
-
 });
 
 // ---------------- COMMAND HANDLER ----------------
@@ -133,62 +101,55 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // ---------------- /prodhan ----------------
   if (interaction.commandName === "prodhan") {
 
-    await interaction.reply({
+    return interaction.reply({
       content: "👅👅👅",
-      files: [
-        "./images/prodhan.jpeg"
-      ],
+      files: ["./images/prodhan.jpeg"],
     });
-
   }
 
   // ---------------- /play ----------------
   if (interaction.commandName === "play") {
 
-  const query = interaction.options.getString("song");
+    const query = interaction.options.getString("song");
 
-  await interaction.reply(`🔍 Searching: ${query}`);
+    await interaction.reply(`🔍 Searching: **${query}**`);
 
-  try {
+    try {
 
-    let url;
+      const result = await player.search(query, {
+        requestedBy: interaction.user,
+      });
 
-    if (query.includes("http")) {
-      url = query;
-    } else {
-
-      const results = await play.search(query, { limit: 1 });
-
-      if (!results || results.length === 0) {
-        return interaction.followUp("❌ Song not found.");
+      if (!result || !result.tracks.length) {
+        return interaction.followUp("❌ No song found.");
       }
 
-      url = results[0].url;
+      const track = result.tracks[0];
+
+      const queue = player.nodes.create(interaction.guild, {
+        metadata: {
+          channel: interaction.channel,
+        },
+        selfDeaf: true,
+      });
+
+      if (!queue.connection) {
+        await queue.connect(interaction.member.voice.channel);
+      }
+
+      queue.addTrack(track);
+
+      if (!queue.node.isPlaying()) {
+        await queue.node.play();
+      }
+
+      return interaction.followUp(`🎵 Now playing: **${track.title}**`);
+
+    } catch (err) {
+      console.error("PLAY ERROR:", err);
+      return interaction.followUp("❌ Failed to play song.");
     }
-
-    const stream = await play.stream(url);
-
-    const resource = createAudioResource(stream.stream, {
-      inputType: stream.type,
-    });
-
-    player.play(resource);
-
-    if (connection) connection.subscribe(player);
-
-    const info = await play.video_basic_info(url);
-
-    return interaction.followUp(`🎵 Now playing: ${info.video_details.title}`);
-
-  } catch (err) {
-
-    console.error("PLAY ERROR:", err);
-
-    return interaction.followUp(
-      `❌ Error: ${err.message || "unknown error"}`
-    );
   }
-}
 });
 
 // ---------------- LOGIN ----------------
