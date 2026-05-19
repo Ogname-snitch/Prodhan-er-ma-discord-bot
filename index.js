@@ -80,4 +80,28 @@ app.get("/", (req, res) => {
 app.listen(process.env.PORT || 3000, () => {
   console.log("Web server running");
 });
+const { Client, GatewayIntentBits, Events } = require("discord.js");
+
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds],
+});
+
+client.once(Events.ClientReady, () => {
+  console.log(`Logged in as ${client.user.tag}`);
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === "prodhan") {
+    await interaction.reply({
+      content: "Here you go 👇",
+      files: [
+        "C:\Users\LAPTOP\Downloads\WhatsApp Image 2026-04-14 at 10.02.07 PM (1).jpeg"
+      ],
+    });
+  }
+});
+
+client.login(process.env.TOKEN);
 client.login(process.env.TOKEN);
