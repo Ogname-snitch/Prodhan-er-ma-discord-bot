@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 
 // ---------------- DISCORD IMPORTS ----------------
 const {
@@ -27,15 +28,6 @@ app.get("/", (req, res) => {
 app.listen(process.env.PORT || 3000, () => {
   console.log("Web server running");
 });
-
-// ---------------- IMAGE ROULETTE ----------------
-const prodhanImages = [
-  "./images/prodhan1.jpeg",
-  "./images/prodhan2.jpeg",
-  "./images/prodhan3.jpeg",
-  "./images/prodhan4.jpeg",
-  "./images/prodhan5.jpeg",
-];
 
 // ---------------- DISCORD CLIENT ----------------
 const client = new Client({
@@ -95,16 +87,43 @@ client.once(Events.ClientReady, async () => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  // ---------------- /prodhan ROULETTE ----------------
+  // ---------------- /prodhan (SAFE ROULETTE) ----------------
   if (interaction.commandName === "prodhan") {
+    try {
+      const imageFolder = path.join(__dirname, "images");
 
-    const randomImage =
-      prodhanImages[Math.floor(Math.random() * prodhanImages.length)];
+      // read all images dynamically (FIXES YOUR ISSUE)
+      const images = fs.readdirSync(imageFolder).filter(file =>
+        file.endsWith(".png") ||
+        file.endsWith(".jpg") ||
+        file.endsWith(".jpeg") ||
+        file.endsWith(".webp")
+      );
 
-    return interaction.reply({
-      content: "🎰 Rolling the roulette...",
-      files: [randomImage],
-    });
+      if (!images.length) {
+        return interaction.reply("❌ No images found in /images folder.");
+      }
+
+      const randomImage = images[Math.floor(Math.random() * images.length)];
+      const filePath = path.join(imageFolder, randomImage);
+
+      console.log("Selected image:", filePath);
+
+      return await interaction.reply({
+        content: "🎰 Rolling the roulette...",
+        files: [filePath],
+      });
+
+    } catch (err) {
+      console.error("PRODHAN ERROR:", err);
+
+      // ALWAYS respond to avoid "Application didn't respond"
+      if (interaction.deferred || interaction.replied) {
+        return interaction.followUp("❌ Error sending image.");
+      }
+
+      return interaction.reply("❌ Error sending image.");
+    }
   }
 });
 
