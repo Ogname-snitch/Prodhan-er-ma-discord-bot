@@ -1,11 +1,6 @@
 require("dotenv").config();
 
 const {
-  Client,
-  GatewayIntentBits,
-} = require("discord.js");
-
-const {
   joinVoiceChannel,
 } = require("@discordjs/voice");
 
@@ -15,6 +10,8 @@ const client = new Client({
     GatewayIntentBits.GuildVoiceStates,
   ],
 });
+
+const { Client, GatewayIntentBits, Events } = require("discord.js");
 
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -80,7 +77,7 @@ app.get("/", (req, res) => {
 app.listen(process.env.PORT || 3000, () => {
   console.log("Web server running");
 });
-const { Client, GatewayIntentBits, Events } = require("discord.js");
+
 
 client.once(Events.ClientReady, () => {
   console.log(`Logged in as ${client.user.tag}`);
