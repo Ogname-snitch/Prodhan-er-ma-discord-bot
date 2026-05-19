@@ -41,10 +41,15 @@ const client = new Client({
   ],
 });
 
-const player = new Player(client);
+const player = new Player(client, {
+  leaveOnEmpty: false,
+  leaveOnEnd: false,
+  leaveOnStop: false,
+});
+
 let connection;
 
-// ---------------- LOAD EXTRACTORS (CRITICAL FIX) ----------------
+// ---------------- LOAD EXTRACTORS ----------------
 (async () => {
   try {
     await player.extractors.loadMulti(DefaultExtractors);
@@ -53,6 +58,19 @@ let connection;
     console.error("Extractor load error:", err);
   }
 })();
+
+// ---------------- PLAYER ERROR HANDLERS (IMPORTANT FIX) ----------------
+player.events.on("playerError", (queue, error) => {
+  console.log("PLAYER ERROR:", error);
+});
+
+player.events.on("error", (queue, error) => {
+  console.log("QUEUE ERROR:", error);
+});
+
+player.events.on("emptyQueue", (queue) => {
+  console.log("Queue empty - staying in VC");
+});
 
 // ---------------- READY EVENT ----------------
 client.once(Events.ClientReady, async () => {
@@ -147,12 +165,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const track = result.tracks[0];
 
-      const queue = player.nodes.create(interaction.guild, {
-        metadata: {
-          channel: interaction.channel,
-        },
-        selfDeaf: true,
-      });
+      let queue = player.nodes.get(interaction.guild);
+
+      if (!queue) {
+        queue = player.nodes.create(interaction.guild, {
+          metadata: {
+            channel: interaction.channel,
+          },
+          selfDeaf: true,
+          leaveOnEmpty: false,
+          leaveOnEnd: false,
+          leaveOnStop: false,
+        });
+      }
 
       if (!queue.connection) {
         await queue.connect(voiceChannel);
