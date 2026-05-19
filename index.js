@@ -73,7 +73,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.commandName === "prodhan") {
     await interaction.reply({
-      content: "Here you go 👇",
+      content: "👅👅👅",
       files: [
         "./images/prodhan.jpeg"
       ],
