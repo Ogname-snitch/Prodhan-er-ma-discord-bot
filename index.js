@@ -16,6 +16,7 @@ const {
 } = require("@discordjs/voice");
 
 const { Player } = require("discord-player");
+const { DefaultExtractors } = require("@discord-player/extractor");
 
 // ---------------- EXPRESS SERVER ----------------
 const app = express();
@@ -39,6 +40,11 @@ const client = new Client({
 const player = new Player(client);
 
 let connection;
+
+// LOAD EXTRACTORS (IMPORTANT FIX)
+(async () => {
+  await player.extractors.loadMulti(DefaultExtractors);
+})();
 
 // ---------------- READY EVENT ----------------
 client.once(Events.ClientReady, async () => {
@@ -64,15 +70,19 @@ client.once(Events.ClientReady, async () => {
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-  await rest.put(
-    Routes.applicationGuildCommands(
-      process.env.CLIENT_ID,
-      process.env.GUILD_ID
-    ),
-    { body: commands }
-  );
+  try {
+    await rest.put(
+      Routes.applicationGuildCommands(
+        process.env.CLIENT_ID,
+        process.env.GUILD_ID
+      ),
+      { body: commands }
+    );
 
-  console.log("Slash commands registered!");
+    console.log("Slash commands registered!");
+  } catch (err) {
+    console.error("Command register error:", err);
+  }
 
   // ---------------- JOIN VC ----------------
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
@@ -100,7 +110,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   // ---------------- /prodhan ----------------
   if (interaction.commandName === "prodhan") {
-
     return interaction.reply({
       content: "👅👅👅",
       files: ["./images/prodhan.jpeg"],
@@ -112,6 +121,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     const query = interaction.options.getString("song");
 
+    const voiceChannel = interaction.member.voice.channel;
+
+    if (!voiceChannel) {
+      return interaction.reply("❌ Join a voice channel first.");
+    }
+
     await interaction.reply(`🔍 Searching: **${query}**`);
 
     try {
@@ -120,7 +135,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
         requestedBy: interaction.user,
       });
 
-      if (!result || !result.tracks.length) {
+      // DEBUG (important if anything breaks)
+      console.log("SEARCH RESULT:", result);
+
+      if (!result || !result.tracks || result.tracks.length === 0) {
         return interaction.followUp("❌ No song found.");
       }
 
@@ -134,7 +152,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
 
       if (!queue.connection) {
-        await queue.connect(interaction.member.voice.channel);
+        await queue.connect(voiceChannel);
       }
 
       queue.addTrack(track);
