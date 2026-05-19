@@ -19,6 +19,17 @@ const {
 
 const play = require("play-dl");
 
+(async () => {
+  await play.setToken({
+    youtube: {
+      cookie: process.env.YT_COOKIE || null
+    }
+  });
+})();
+
+const ffmpegPath = require("ffmpeg-static");
+process.env.FFMPEG_PATH = ffmpegPath;
+
 // ---------------- EXPRESS SERVER ----------------
 const app = express();
 
@@ -134,50 +145,50 @@ client.on(Events.InteractionCreate, async (interaction) => {
   // ---------------- /play ----------------
   if (interaction.commandName === "play") {
 
-    const query = interaction.options.getString("song");
+  const query = interaction.options.getString("song");
 
-    await interaction.reply(`🔍 Searching: ${query}`);
+  await interaction.reply(`🔍 Searching: ${query}`);
 
-    try {
+  try {
 
-      let url;
+    let url;
 
-      // If it's a direct link
-      if (query.includes("http")) {
-        url = query;
+    if (query.includes("http")) {
+      url = query;
+    } else {
 
-      } else {
+      const results = await play.search(query, { limit: 1 });
 
-        // Search YouTube
-        const results = await play.search(query, { limit: 1 });
-
-        if (!results || results.length === 0) {
-          return interaction.followUp("❌ Song not found.");
-        }
-
-        url = results[0].url;
+      if (!results || results.length === 0) {
+        return interaction.followUp("❌ Song not found.");
       }
 
-      const stream = await play.stream(url);
-
-      const resource = createAudioResource(stream.stream, {
-        inputType: stream.type,
-      });
-
-      player.play(resource);
-      connection.subscribe(player);
-
-      const info = await play.video_basic_info(url);
-
-      await interaction.followUp(
-        `🎵 Now playing: ${info.video_details.title}`
-      );
-
-    } catch (err) {
-      console.error(err);
-      interaction.followUp("❌ Error playing song.");
+      url = results[0].url;
     }
+
+    const stream = await play.stream(url);
+
+    const resource = createAudioResource(stream.stream, {
+      inputType: stream.type,
+    });
+
+    player.play(resource);
+
+    if (connection) connection.subscribe(player);
+
+    const info = await play.video_basic_info(url);
+
+    return interaction.followUp(`🎵 Now playing: ${info.video_details.title}`);
+
+  } catch (err) {
+
+    console.error("PLAY ERROR:", err);
+
+    return interaction.followUp(
+      `❌ Error: ${err.message || "unknown error"}`
+    );
   }
+}
 });
 
 // ---------------- LOGIN ----------------
