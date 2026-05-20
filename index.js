@@ -4,7 +4,6 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 
-// ---------------- DISCORD IMPORTS ----------------
 const {
   Client,
   GatewayIntentBits,
@@ -14,11 +13,8 @@ const {
   Routes,
 } = require("discord.js");
 
-const {
-  joinVoiceChannel,
-} = require("@discordjs/voice");
+const { joinVoiceChannel } = require("@discordjs/voice");
 
-// ---------------- LAVALINK / MUSIC ----------------
 const { Kazagumo } = require("kazagumo");
 const { Connectors } = require("shoukaku");
 
@@ -41,61 +37,54 @@ const client = new Client({
   ],
 });
 
-let connection;
-
-// ---------------- LAVALINK NODES ----------------
+// ---------------- LAVALINK NODES (FIXED FORMAT) ----------------
 const nodes = [
   {
-    name: "Localhost",
-    url: process.env.LAVALINK_HOST,
+    name: "Lavalink-1",
+    url: process.env.LAVALINK_HOST, // must be host:port
     auth: process.env.LAVALINK_PASSWORD,
     secure: false,
   },
 ];
 
-// ---------------- KAZAGUMO ----------------
+// ---------------- KAZAGUMO SETUP (FIXED ORDER) ----------------
 const kazagumo = new Kazagumo(
   {
     defaultSearchEngine: "youtube",
 
     send: (guildId, payload) => {
       const guild = client.guilds.cache.get(guildId);
-
-      if (guild) {
-        guild.shard.send(payload);
-      }
+      if (guild) guild.shard.send(payload);
     },
   },
-
   new Connectors.DiscordJS(client),
-
   nodes
 );
 
-// ---------------- LAVALINK EVENTS ----------------
+// ---------------- DEBUG EVENTS ----------------
 kazagumo.shoukaku.on("ready", (name) => {
-  console.log(`✅ Lavalink ${name} connected`);
+  console.log(`✅ Lavalink connected: ${name}`);
 });
 
 kazagumo.shoukaku.on("error", (name, error) => {
-  console.log(`❌ Lavalink ${name} error:`, error);
+  console.log(`❌ Lavalink error (${name}):`, error);
 });
+
+// ---------------- IMAGE ROULETTE ----------------
+const imageFolder = path.join(__dirname, "images");
 
 // ---------------- READY EVENT ----------------
 client.once(Events.ClientReady, async () => {
-
   console.log(`Logged in as ${client.user.tag}`);
 
-  // ---------------- SLASH COMMANDS ----------------
   const commands = [
-
     new SlashCommandBuilder()
       .setName("prodhan")
       .setDescription("Send random roulette image"),
 
     new SlashCommandBuilder()
       .setName("play")
-      .setDescription("Play music with Lavalink")
+      .setDescription("Play music")
       .addStringOption(option =>
         option
           .setName("song")
@@ -105,143 +94,61 @@ client.once(Events.ClientReady, async () => {
 
     new SlashCommandBuilder()
       .setName("skip")
-      .setDescription("Skip current song"),
+      .setDescription("Skip song"),
 
     new SlashCommandBuilder()
       .setName("stop")
       .setDescription("Stop music"),
-
   ].map(c => c.toJSON());
 
-  const rest = new REST({ version: "10" })
-    .setToken(process.env.TOKEN);
+  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-  try {
+  await rest.put(
+    Routes.applicationGuildCommands(
+      process.env.CLIENT_ID,
+      process.env.GUILD_ID
+    ),
+    { body: commands }
+  );
 
-    await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID,
-        process.env.GUILD_ID
-      ),
-      { body: commands }
-    );
-
-    console.log("✅ Slash commands registered!");
-
-  } catch (err) {
-
-    console.error("❌ Command register error:", err);
-
-  }
-
-  // ---------------- JOIN VOICE CHANNEL ----------------
-  const guild = client.guilds.cache.get(process.env.GUILD_ID);
-
-  if (!guild) {
-    return console.log("Guild not found");
-  }
-
-  const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-
-  if (!channel) {
-    return console.log("Voice channel not found");
-  }
-
-  connection = joinVoiceChannel({
-    channelId: channel.id,
-    guildId: guild.id,
-    adapterCreator: guild.voiceAdapterCreator,
-    selfDeaf: true,
-  });
-
-  console.log("✅ Joined VC successfully");
-
+  console.log("✅ Slash commands registered");
 });
 
 // ---------------- COMMAND HANDLER ----------------
 client.on(Events.InteractionCreate, async (interaction) => {
-
   if (!interaction.isChatInputCommand()) return;
 
-  // =====================================================
-  // /PRODHAN
-  // =====================================================
-
+  // ---------------- /PRODHAN ----------------
   if (interaction.commandName === "prodhan") {
+    const images = fs.readdirSync(imageFolder).filter(f =>
+      /\.(png|jpg|jpeg|webp)$/i.test(f)
+    );
 
-    try {
+    if (!images.length)
+      return interaction.reply("❌ No images found.");
 
-      const imageFolder = path.join(__dirname, "images");
+    const file = images[Math.floor(Math.random() * images.length)];
 
-      const images = fs.readdirSync(imageFolder).filter(file =>
-        file.endsWith(".png") ||
-        file.endsWith(".jpg") ||
-        file.endsWith(".jpeg") ||
-        file.endsWith(".webp")
-      );
-
-      if (!images.length) {
-        return interaction.reply(
-          "❌ No images found in /images folder."
-        );
-      }
-
-      const randomImage =
-        images[Math.floor(Math.random() * images.length)];
-
-      const filePath = path.join(imageFolder, randomImage);
-
-      console.log("Selected image:", filePath);
-
-      return await interaction.reply({
-        content: "🎰 Rolling the roulette...",
-        files: [filePath],
-      });
-
-    } catch (err) {
-
-      console.error("PRODHAN ERROR:", err);
-
-      if (interaction.deferred || interaction.replied) {
-        return interaction.followUp(
-          "❌ Error sending image."
-        );
-      }
-
-      return interaction.reply(
-        "❌ Error sending image."
-      );
-    }
+    return interaction.reply({
+      content: "🎰 Roulette!",
+      files: [path.join(imageFolder, file)],
+    });
   }
 
-  // =====================================================
-  // /PLAY
-  // =====================================================
-
+  // ---------------- /PLAY ----------------
   if (interaction.commandName === "play") {
-
     try {
-
       const query = interaction.options.getString("song");
+      const voiceChannel = interaction.member.voice.channel;
 
-      const voiceChannel =
-        interaction.member.voice.channel;
+      if (!voiceChannel)
+        return interaction.reply("❌ Join a voice channel first.");
 
-      if (!voiceChannel) {
-        return interaction.reply(
-          "❌ Join a voice channel first."
-        );
-      }
+      await interaction.reply(`🔍 Searching: **${query}**`);
 
-      await interaction.reply(
-        `🔍 Searching: **${query}**`
-      );
-
-      let player =
-        kazagumo.players.get(interaction.guild.id);
+      let player = kazagumo.players.get(interaction.guild.id);
 
       if (!player) {
-
         player = await kazagumo.createPlayer({
           guildId: interaction.guild.id,
           textId: interaction.channel.id,
@@ -250,88 +157,51 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
       }
 
-      const result = await kazagumo.search(
-        query,
-        {
-          requester: interaction.user,
-        }
-      );
+      const result = await kazagumo.search(query, {
+        requester: interaction.user,
+      });
 
-      console.log("SEARCH RESULT:", result);
-
-      if (!result || !result.tracks.length) {
-        return interaction.followUp(
-          "❌ No songs found."
-        );
-      }
+      if (!result.tracks.length)
+        return interaction.followUp("❌ No songs found.");
 
       const track = result.tracks[0];
 
       player.queue.add(track);
 
-      if (!player.playing && !player.paused) {
-        player.play();
+      if (!player.playing) {
+        await player.play();
       }
 
-      return interaction.followUp(
-        `🎵 Now playing: **${track.title}**`
-      );
+      return interaction.followUp(`🎵 Now playing: **${track.title}**`);
 
     } catch (err) {
-
       console.error("PLAY ERROR:", err);
-
-      return interaction.followUp(
-        `❌ Failed to play song.\n${err.message}`
-      );
+      return interaction.followUp("❌ Failed to play song.");
     }
   }
 
-  // =====================================================
-  // /SKIP
-  // =====================================================
-
+  // ---------------- /SKIP ----------------
   if (interaction.commandName === "skip") {
+    const player = kazagumo.players.get(interaction.guild.id);
 
-    const player =
-      kazagumo.players.get(interaction.guild.id);
-
-    if (!player) {
-      return interaction.reply(
-        "❌ No music is playing."
-      );
-    }
+    if (!player)
+      return interaction.reply("❌ No music playing.");
 
     player.skip();
-
-    return interaction.reply(
-      "⏭️ Skipped song."
-    );
+    return interaction.reply("⏭️ Skipped.");
   }
 
-  // =====================================================
-  // /STOP
-  // =====================================================
-
+  // ---------------- /STOP ----------------
   if (interaction.commandName === "stop") {
+    const player = kazagumo.players.get(interaction.guild.id);
 
-    const player =
-      kazagumo.players.get(interaction.guild.id);
-
-    if (!player) {
-      return interaction.reply(
-        "❌ No music is playing."
-      );
-    }
+    if (!player)
+      return interaction.reply("❌ No music playing.");
 
     player.destroy();
-
-    return interaction.reply(
-      "🛑 Music stopped."
-    );
+    return interaction.reply("🛑 Stopped.");
   }
-
 });
 
-// ---------------- LOGIN -------------------
+// ---------------- LOGIN ----------------
 client.login(process.env.TOKEN);
