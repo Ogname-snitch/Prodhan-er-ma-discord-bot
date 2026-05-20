@@ -96,10 +96,15 @@ client.once(Events.ClientReady, async () => {
       .setName("skip")
       .setDescription("Skip song"),
 
-    // ---------------- NEW /STOP COMMAND ----------------
     new SlashCommandBuilder()
       .setName("stop")
       .setDescription("Stop music but stay in VC"),
+
+    // ---------------- NEW /QUEUE COMMAND ----------------
+    new SlashCommandBuilder()
+      .setName("queue")
+      .setDescription("View the current music queue"),
+
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
@@ -173,7 +178,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await player.play();
       }
 
-      return interaction.followUp(`🎵 Now playing: **${track.title}**`);
+      return interaction.followUp(
+        `🎵 Now playing: **${track.title}**`
+      );
 
     } catch (err) {
       console.error("PLAY ERROR:", err);
@@ -204,12 +211,52 @@ client.on(Events.InteractionCreate, async (interaction) => {
     player.queue.clear();
     player.skip();
 
-    // DOES NOT destroy player
-    // DOES NOT disconnect from VC
+    // stays in VC
 
     return interaction.reply(
       "🛑 Music stopped. Staying in VC 24/7."
     );
+  }
+
+  // ---------------- /QUEUE ----------------
+  if (interaction.commandName === "queue") {
+
+    const player = kazagumo.players.get(interaction.guild.id);
+
+    if (!player)
+      return interaction.reply("❌ No music playing.");
+
+    const current = player.queue.current;
+
+    const tracks = player.queue;
+
+    let queueMessage = "";
+
+    // CURRENT SONG
+    if (current) {
+      queueMessage += `🎵 Now Playing:\n**${current.title}**\n\n`;
+    }
+
+    // UPCOMING SONGS
+    if (!tracks.size) {
+      queueMessage += "📭 Queue is empty.";
+    } else {
+
+      const upcoming = tracks
+        .slice(0, 10)
+        .map((track, index) => {
+          return `${index + 1}. ${track.title}`;
+        })
+        .join("\n");
+
+      queueMessage += `📜 Upcoming Songs:\n${upcoming}`;
+
+      if (tracks.size > 10) {
+        queueMessage += `\n\n...and ${tracks.size - 10} more songs`;
+      }
+    }
+
+    return interaction.reply(queueMessage);
   }
 });
 
