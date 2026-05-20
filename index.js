@@ -95,6 +95,11 @@ client.once(Events.ClientReady, async () => {
     new SlashCommandBuilder()
       .setName("skip")
       .setDescription("Skip song"),
+
+    // ---------------- NEW /STOP COMMAND ----------------
+    new SlashCommandBuilder()
+      .setName("stop")
+      .setDescription("Stop music but stay in VC"),
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
@@ -184,7 +189,27 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply("❌ No music playing.");
 
     player.skip();
+
     return interaction.reply("⏭️ Skipped.");
+  }
+
+  // ---------------- /STOP ----------------
+  if (interaction.commandName === "stop") {
+    const player = kazagumo.players.get(interaction.guild.id);
+
+    if (!player)
+      return interaction.reply("❌ No music playing.");
+
+    // stops music + clears queue
+    player.queue.clear();
+    player.skip();
+
+    // DOES NOT destroy player
+    // DOES NOT disconnect from VC
+
+    return interaction.reply(
+      "🛑 Music stopped. Staying in VC 24/7."
+    );
   }
 });
 
