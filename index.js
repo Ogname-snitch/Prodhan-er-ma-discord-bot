@@ -43,10 +43,21 @@ const client = new Client({
 
 let connection;
 
-// ---------------- KAZAGUMO / LAVALINK ----------------
+// ---------------- LAVALINK NODES ----------------
+const nodes = [
+  {
+    name: "Localhost",
+    url: process.env.LAVALINK_HOST,
+    auth: process.env.LAVALINK_PASSWORD,
+    secure: false,
+  },
+];
+
+// ---------------- KAZAGUMO ----------------
 const kazagumo = new Kazagumo(
   {
     defaultSearchEngine: "youtube",
+
     send: (guildId, payload) => {
       const guild = client.guilds.cache.get(guildId);
 
@@ -54,31 +65,25 @@ const kazagumo = new Kazagumo(
         guild.shard.send(payload);
       }
     },
-
-    nodes: [
-      {
-        name: "Localhost",
-        url: process.env.LAVALINK_HOST,
-        auth: process.env.LAVALINK_PASSWORD,
-        secure: false,
-      },
-    ],
   },
 
-  new Connectors.DiscordJS(client)
+  new Connectors.DiscordJS(client),
+
+  nodes
 );
 
 // ---------------- LAVALINK EVENTS ----------------
 kazagumo.shoukaku.on("ready", (name) => {
-  console.log(`Lavalink ${name} connected`);
+  console.log(`✅ Lavalink ${name} connected`);
 });
 
 kazagumo.shoukaku.on("error", (name, error) => {
-  console.log(`Lavalink ${name} error:`, error);
+  console.log(`❌ Lavalink ${name} error:`, error);
 });
 
 // ---------------- READY EVENT ----------------
 client.once(Events.ClientReady, async () => {
+
   console.log(`Logged in as ${client.user.tag}`);
 
   // ---------------- SLASH COMMANDS ----------------
@@ -108,7 +113,8 @@ client.once(Events.ClientReady, async () => {
 
   ].map(c => c.toJSON());
 
-  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+  const rest = new REST({ version: "10" })
+    .setToken(process.env.TOKEN);
 
   try {
 
@@ -120,11 +126,11 @@ client.once(Events.ClientReady, async () => {
       { body: commands }
     );
 
-    console.log("Slash commands registered!");
+    console.log("✅ Slash commands registered!");
 
   } catch (err) {
 
-    console.error("Command register error:", err);
+    console.error("❌ Command register error:", err);
 
   }
 
@@ -148,7 +154,8 @@ client.once(Events.ClientReady, async () => {
     selfDeaf: true,
   });
 
-  console.log("Joined VC successfully");
+  console.log("✅ Joined VC successfully");
+
 });
 
 // ---------------- COMMAND HANDLER ----------------
@@ -174,7 +181,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
 
       if (!images.length) {
-        return interaction.reply("❌ No images found in /images folder.");
+        return interaction.reply(
+          "❌ No images found in /images folder."
+        );
       }
 
       const randomImage =
@@ -194,10 +203,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       console.error("PRODHAN ERROR:", err);
 
       if (interaction.deferred || interaction.replied) {
-        return interaction.followUp("❌ Error sending image.");
+        return interaction.followUp(
+          "❌ Error sending image."
+        );
       }
 
-      return interaction.reply("❌ Error sending image.");
+      return interaction.reply(
+        "❌ Error sending image."
+      );
     }
   }
 
@@ -210,7 +223,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     try {
 
       const query = interaction.options.getString("song");
-      const voiceChannel = interaction.member.voice.channel;
+
+      const voiceChannel =
+        interaction.member.voice.channel;
 
       if (!voiceChannel) {
         return interaction.reply(
@@ -218,9 +233,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         );
       }
 
-      await interaction.reply(`🔍 Searching: **${query}**`);
+      await interaction.reply(
+        `🔍 Searching: **${query}**`
+      );
 
-      let player = kazagumo.players.get(interaction.guild.id);
+      let player =
+        kazagumo.players.get(interaction.guild.id);
 
       if (!player) {
 
@@ -239,8 +257,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
         }
       );
 
-      if (!result.tracks.length) {
-        return interaction.followUp("❌ No songs found.");
+      console.log("SEARCH RESULT:", result);
+
+      if (!result || !result.tracks.length) {
+        return interaction.followUp(
+          "❌ No songs found."
+        );
       }
 
       const track = result.tracks[0];
@@ -260,7 +282,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       console.error("PLAY ERROR:", err);
 
       return interaction.followUp(
-        "❌ Failed to play song."
+        `❌ Failed to play song.\n${err.message}`
       );
     }
   }
@@ -271,15 +293,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.commandName === "skip") {
 
-    const player = kazagumo.players.get(interaction.guild.id);
+    const player =
+      kazagumo.players.get(interaction.guild.id);
 
     if (!player) {
-      return interaction.reply("❌ No music is playing.");
+      return interaction.reply(
+        "❌ No music is playing."
+      );
     }
 
     player.skip();
 
-    return interaction.reply("⏭️ Skipped song.");
+    return interaction.reply(
+      "⏭️ Skipped song."
+    );
   }
 
   // =====================================================
@@ -288,18 +315,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   if (interaction.commandName === "stop") {
 
-    const player = kazagumo.players.get(interaction.guild.id);
+    const player =
+      kazagumo.players.get(interaction.guild.id);
 
     if (!player) {
-      return interaction.reply("❌ No music is playing.");
+      return interaction.reply(
+        "❌ No music is playing."
+      );
     }
 
     player.destroy();
 
-    return interaction.reply("🛑 Music stopped.");
+    return interaction.reply(
+      "🛑 Music stopped."
+    );
   }
 
 });
 
-// ---------------- LOGIN -----------------
+// ---------------- LOGIN ----------------
 client.login(process.env.TOKEN);
