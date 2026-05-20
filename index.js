@@ -37,17 +37,17 @@ const client = new Client({
   ],
 });
 
-// ---------------- LAVALINK NODES (FIXED FORMAT) ----------------
+// ---------------- LAVALINK NODES ----------------
 const nodes = [
   {
     name: "Lavalink-1",
-    url: process.env.LAVALINK_HOST, // must be host:port
+    url: process.env.LAVALINK_HOST,
     auth: process.env.LAVALINK_PASSWORD,
     secure: false,
   },
 ];
 
-// ---------------- KAZAGUMO SETUP (FIXED ORDER) ----------------
+// ---------------- KAZAGUMO SETUP ----------------
 const kazagumo = new Kazagumo(
   {
     defaultSearchEngine: "youtube",
@@ -95,10 +95,6 @@ client.once(Events.ClientReady, async () => {
     new SlashCommandBuilder()
       .setName("skip")
       .setDescription("Skip song"),
-
-    new SlashCommandBuilder()
-      .setName("stop")
-      .setDescription("Stop music"),
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
@@ -189,17 +185,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     player.skip();
     return interaction.reply("⏭️ Skipped.");
-  }
-
-  // ---------------- /STOP ----------------
-  if (interaction.commandName === "stop") {
-    const player = kazagumo.players.get(interaction.guild.id);
-
-    if (!player)
-      return interaction.reply("❌ No music playing.");
-
-    player.destroy();
-    return interaction.reply("🛑 Stopped.");
   }
 });
 
