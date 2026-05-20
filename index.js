@@ -301,5 +301,5 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
 });
 
-// ---------------- LOGIN ----------------
+// ---------------- LOGIN -----------------
 client.login(process.env.TOKEN);
