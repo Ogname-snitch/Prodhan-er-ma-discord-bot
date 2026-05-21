@@ -152,7 +152,14 @@ client.once(Events.ClientReady, async () => {
     new SlashCommandBuilder().setName("beg").setDescription("🥺 Beg"),
     new SlashCommandBuilder().setName("work").setDescription("💼 Work"),
 
-    new SlashCommandBuilder().setName("slots").setDescription("🎰 Slots"),
+    new SlashCommandBuilder()
+  .setName("slots")
+  .setDescription("🎰 Slots game")
+  .addIntegerOption(o =>
+    o.setName("bet")
+      .setDescription("Bet amount")
+      .setRequired(true)
+  ),
 
     new SlashCommandBuilder()
       .setName("transfer")
@@ -215,61 +222,76 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   // ---------------- PLAY ----------------
   if (interaction.commandName === "play") {
-    const query = interaction.options.getString("song");
-    const vc = interaction.member.voice.channel;
+  const query = interaction.options.getString("song");
+  const vc = interaction.member.voice.channel;
 
-    if (!vc) return interaction.reply("❌ Join VC first");
+  if (!vc) return interaction.reply("❌ Join a voice channel first");
 
-    await interaction.reply(`🔍 Searching **${query}**`);
+  await interaction.reply(`🔍 Searching: **${query}**`);
 
-    try {
-      let player = kazagumo.players.get(interaction.guild.id);
+  try {
+    let player = kazagumo.players.get(interaction.guild.id);
 
-      if (!player) {
-        player = await kazagumo.createPlayer({
-          guildId: interaction.guild.id,
-          textId: interaction.channel.id,
-          voiceId: vc.id,
-          deaf: true,
-        });
-      }
-
-      const res = await kazagumo.search(query, { requester: interaction.user });
-
-      if (!res?.tracks?.length)
-        return interaction.followUp("❌ No songs found");
-
-      const track = res.tracks[0];
-
-      player.queue.add(track);
-      if (!player.playing) await player.play();
-
-      return interaction.followUp(`🎵 Now playing **${track.title}**`);
-    } catch (e) {
-      console.log(e);
-      return interaction.followUp("❌ Music error");
+    if (!player) {
+      player = await kazagumo.createPlayer({
+        guildId: interaction.guild.id,
+        textId: interaction.channel.id,
+        voiceId: vc.id,
+        deaf: true,
+      });
     }
+
+    const res = await kazagumo.search(query, { requester: interaction.user });
+
+    if (!res?.tracks?.length)
+      return interaction.followUp("❌ No songs found");
+
+    const track = res.tracks[0];
+
+    player.queue.add(track);
+
+    if (!player.playing) await player.play();
+
+    return interaction.followUp(`🎵 Now playing **${track.title}**`);
+  } catch (err) {
+    console.log("PLAY ERROR:", err);
+    return interaction.followUp("❌ Music system error (check Lavalink)");
   }
+}
 
   // ---------------- SKIP ----------------
-  if (interaction.commandName === "skip") {
-    const player = kazagumo.players.get(interaction.guild.id);
-    if (!player) return interaction.reply("❌ No music");
+ if (interaction.commandName === "skip") {
+  const player = kazagumo.players.get(interaction.guild.id);
 
+  if (!player) return interaction.reply("❌ No music playing");
+
+  try {
     await player.skip();
-    return interaction.reply("⏭️ Skipped (stays in VC)");
+    return interaction.reply("⏭️ Skipped");
+  } catch (e) {
+    console.log(e);
+    return interaction.reply("❌ Skip failed");
   }
+}
 
   // ---------------- STOP ----------------
   if (interaction.commandName === "stop") {
-    const player = kazagumo.players.get(interaction.guild.id);
-    if (!player) return interaction.reply("❌ No music");
+  const player = kazagumo.players.get(interaction.guild.id);
 
+  if (!player) return interaction.reply("❌ No music playing");
+
+  try {
     player.queue.clear();
+
+    // IMPORTANT: DO NOT destroy player (this is what caused VC leave issues)
     await player.skip();
 
-    return interaction.reply("🛑 Stopped (NO VC LEAVE)");
+    return interaction.reply("🛑 Stopped (stayed in VC)");
+  } catch (e) {
+    console.log(e);
+    return interaction.reply("❌ Stop failed");
   }
+}
 
   // ---------------- QUEUE ----------------
   if (interaction.commandName === "queue") {
@@ -436,5 +458,42 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
 });
+
+// ---------------- SLOTS ----------------
+
+if (interaction.commandName === "slots") {
+  const bet = interaction.options.getInteger("bet");
+
+  if (u.wallet < bet) return interaction.reply("❌ Not enough money");
+
+  const symbols = ["🍒", "🍋", "🍇", "💎", "7️⃣"];
+  const roll = () => symbols[Math.floor(Math.random() * symbols.length)];
+
+  const r1 = roll();
+  const r2 = roll();
+  const r3 = roll();
+
+  let winMultiplier = 0;
+
+  if (r1 === r2 && r2 === r3) winMultiplier = 5;
+  else if (r1 === r2 || r2 === r3 || r1 === r3) winMultiplier = 2;
+
+  let resultText;
+
+  if (winMultiplier > 0) {
+    const win = bet * winMultiplier;
+    u.wallet += win;
+    resultText = `🎉 You won ${win}`;
+  } else {
+    u.wallet -= bet;
+    resultText = `💀 You lost ${bet}`;
+  }
+
+  await saveUser(interaction.user.id, u);
+
+  return interaction.reply(
+    `🎰 | ${r1} | ${r2} | ${r3} |\n${resultText}`
+  );
+}
 
 client.login(process.env.TOKEN);
