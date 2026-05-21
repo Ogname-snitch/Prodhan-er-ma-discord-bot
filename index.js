@@ -73,7 +73,7 @@ async function saveUser(id, data) {
 
 const getTotal = (u) => u.wallet + u.bank;
 
-// ---------------- VC 24/7 FIXED SYSTEM ----------------
+// ---------------- VC SYSTEM ----------------
 function forceRejoinVC() {
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
   if (!guild) return;
@@ -82,7 +82,6 @@ function forceRejoinVC() {
   if (!channel) return;
 
   const existing = getVoiceConnection(guild.id);
-
   if (existing) return;
 
   joinVoiceChannel({
@@ -91,16 +90,9 @@ function forceRejoinVC() {
     adapterCreator: guild.voiceAdapterCreator,
     selfDeaf: true,
   });
-
-  console.log("🔁 VC ensured");
 }
 
 setInterval(forceRejoinVC, 15000);
-
-// ALSO FORCE REJOIN IF KICKED
-client.on("voiceStateUpdate", () => {
-  setTimeout(forceRejoinVC, 2000);
-});
 
 // ---------------- READY ----------------
 client.once(Events.ClientReady, async () => {
@@ -118,7 +110,9 @@ client.once(Events.ClientReady, async () => {
       .setName("play")
       .setDescription("🎵 Play music")
       .addStringOption(o =>
-        o.setName("song").setDescription("Song name or URL").setRequired(true)
+        o.setName("song")
+          .setDescription("Song name or URL")
+          .setRequired(true)
       ),
 
     new SlashCommandBuilder()
@@ -133,40 +127,70 @@ client.once(Events.ClientReady, async () => {
       .setName("queue")
       .setDescription("📜 View queue"),
 
-    // ECONOMY (ALL FIXED STRINGS)
-    new SlashCommandBuilder().setName("balance").setDescription("💰 Check Tbabcoins balance"),
-    new SlashCommandBuilder().setName("daily").setDescription("🎁 Daily reward"),
-    new SlashCommandBuilder().setName("beg").setDescription("🥺 Beg for money"),
-    new SlashCommandBuilder().setName("work").setDescription("💼 Work"),
+    // ECONOMY
+    new SlashCommandBuilder()
+      .setName("balance")
+      .setDescription("💰 Check balance"),
+
+    new SlashCommandBuilder()
+      .setName("daily")
+      .setDescription("🎁 Daily reward"),
+
+    new SlashCommandBuilder()
+      .setName("beg")
+      .setDescription("🥺 Beg for money"),
+
+    new SlashCommandBuilder()
+      .setName("work")
+      .setDescription("💼 Work for money"),
+
+    // ✅ FIXED: ALL OPTIONS NOW HAVE DESCRIPTIONS
 
     new SlashCommandBuilder()
       .setName("deposit")
-      .setDescription("🏦 Deposit Tbabcoins")
-      .addIntegerOption(o => o.setName("amount").setRequired(true)),
+      .setDescription("🏦 Deposit money into bank")
+      .addIntegerOption(o =>
+        o.setName("amount")
+          .setDescription("Amount to deposit")
+          .setRequired(true)
+      ),
 
     new SlashCommandBuilder()
       .setName("withdraw")
-      .setDescription("💰 Withdraw Tbabcoins")
-      .addIntegerOption(o => o.setName("amount").setRequired(true)),
+      .setDescription("💰 Withdraw money from bank")
+      .addIntegerOption(o =>
+        o.setName("amount")
+          .setDescription("Amount to withdraw")
+          .setRequired(true)
+      ),
 
     // GAMBLING
+
     new SlashCommandBuilder()
       .setName("coinflip")
       .setDescription("🪙 50/50 gamble")
-      .addIntegerOption(o => o.setName("amount").setRequired(true)),
+      .addIntegerOption(o =>
+        o.setName("amount")
+          .setDescription("Bet amount")
+          .setRequired(true)
+      ),
 
     new SlashCommandBuilder()
       .setName("slots")
       .setDescription("🎰 Slot machine")
-      .addIntegerOption(o => o.setName("amount").setRequired(true)),
+      .addIntegerOption(o =>
+        o.setName("amount")
+          .setDescription("Bet amount")
+          .setRequired(true)
+      ),
 
     new SlashCommandBuilder()
       .setName("rob")
-      .setDescription("🚔 Try robbing"),
+      .setDescription("🚔 Try robbing someone"),
 
     new SlashCommandBuilder()
       .setName("leaderboard")
-      .setDescription("🏆 Top users"),
+      .setDescription("🏆 Top richest users"),
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
@@ -188,7 +212,7 @@ client.once(Events.ClientReady, async () => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  // ===== IMAGE =====
+  // IMAGE
   if (interaction.commandName === "prodhan") {
     const images = fs.readdirSync(imageFolder).filter(f =>
       /\.(png|jpg|jpeg|webp)$/i.test(f)
@@ -205,7 +229,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     });
   }
 
-  // ===== MUSIC =====
+  // MUSIC
   if (interaction.commandName === "play") {
     const query = interaction.options.getString("song");
     const vc = interaction.member.voice.channel;
@@ -270,7 +294,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(msg);
   }
 
-  // ===== ECONOMY =====
+  // ECONOMY
   if (interaction.commandName === "balance") {
     const u = await getUser(interaction.user.id);
     return interaction.reply(
@@ -317,7 +341,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`💼 ${job} +${amt}`);
   }
 
-  // ===== BANK =====
+  // BANK
   if (interaction.commandName === "deposit") {
     const amt = interaction.options.getInteger("amount");
     const u = await getUser(interaction.user.id);
@@ -344,7 +368,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`💰 Withdrew ${amt}`);
   }
 
-  // ===== GAMBLING =====
+  // GAMBLING
   if (interaction.commandName === "coinflip") {
     const bet = interaction.options.getInteger("amount");
     const u = await getUser(interaction.user.id);
