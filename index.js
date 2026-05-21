@@ -11,6 +11,9 @@ const {
   SlashCommandBuilder,
   REST,
   Routes,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } = require("discord.js");
 
 const { joinVoiceChannel, getVoiceConnection } = require("@discordjs/voice");
@@ -45,7 +48,7 @@ const nodes = [
   },
 ];
 
-// ---------------- KAZAGUMO ----------------
+// ---------------- MUSIC ----------------
 const kazagumo = new Kazagumo(
   {
     defaultSearchEngine: "youtube",
@@ -61,15 +64,13 @@ const kazagumo = new Kazagumo(
 // ---------------- IMAGE ----------------
 const imageFolder = path.join(__dirname, "images");
 
-// ---------------- ECONOMY (PERSISTENT FIX) ----------------
+// ---------------- ECONOMY (NO BANK) ----------------
 async function getUser(id) {
   let user = await db.get(`user_${id}`);
 
-  // SAFE FIX: prevents reset after updates
   if (!user || typeof user !== "object") {
     user = {
       wallet: 0,
-      bank: 0,
       lastDaily: 0,
       lastWork: 0,
       lastBeg: 0,
@@ -83,8 +84,6 @@ async function getUser(id) {
 async function saveUser(id, data) {
   await db.set(`user_${id}`, data);
 }
-
-const getTotal = (u) => u.wallet + u.bank;
 
 // ---------------- COOLDOWNS ----------------
 const cooldowns = {
@@ -150,7 +149,20 @@ client.once(Events.ClientReady, async () => {
         o.setName("amount").setDescription("Bet").setRequired(true)
       ),
 
-    new SlashCommandBuilder().setName("rob").setDescription("🚔 Rob"),
+    new SlashCommandBuilder()
+      .setName("rob")
+      .setDescription("🚔 Rob"),
+
+    // NEW STEAL COMMAND
+    new SlashCommandBuilder()
+      .setName("steal")
+      .setDescription("💰 Try stealing from someone")
+      .addUserOption(o =>
+        o.setName("user")
+          .setDescription("Target user")
+          .setRequired(true)
+      ),
+
     new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
   ].map(c => c.toJSON());
 
@@ -167,13 +179,16 @@ client.once(Events.ClientReady, async () => {
   console.log("✅ Commands registered");
 });
 
+// ---------------- STEAL SYSTEM STORAGE ----------------
+const stealMap = new Map();
+
 // ---------------- COMMANDS ----------------
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const u = await getUser(interaction.user.id);
 
-  // ---------------- PRODhan ----------------
+  // ---------------- PRODHAN ----------------
   if (interaction.commandName === "prodhan") {
     const images = fs.readdirSync(imageFolder)
       .filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
@@ -189,7 +204,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     });
   }
 
-  // ---------------- PLAY (FIXED FULL) ----------------
+  // ---------------- MUSIC ----------------
   if (interaction.commandName === "play") {
     const query = interaction.options.getString("song");
     const vc = interaction.member.voice.channel;
@@ -223,7 +238,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.followUp(`🎵 Now playing **${track.title}**`);
   }
 
-  // ---------------- SKIP/STOP/QUEUE ----------------
   if (interaction.commandName === "skip") {
     const player = kazagumo.players.get(interaction.guild.id);
     if (!player) return interaction.reply("❌ No music");
@@ -254,12 +268,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(msg);
   }
 
-  // ---------------- ECONOMY + COOLDOWN FIX ----------------
+  // ---------------- ECONOMY ----------------
   const now = Date.now();
 
   if (interaction.commandName === "daily") {
     if (now - u.lastDaily < cooldowns.daily)
-      return interaction.reply("⏳ daily cooldown");
+      return interaction.reply("⏳ cooldown");
 
     u.wallet += 1000;
     u.lastDaily = now;
@@ -293,9 +307,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   if (interaction.commandName === "balance") {
-    return interaction.reply(
-      `💰 Wallet: ${u.wallet}\n🏦 Bank: ${u.bank}\n📊 Total: ${getTotal(u)}`
-    );
+    return interaction.reply(`💰 Wallet: ${u.wallet}`);
   }
 
   // ---------------- GAMBLING ----------------
@@ -345,6 +357,62 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`💰 +${gain}`);
   }
 
+  // ---------------- STEAL COMMAND ----------------
+  if (interaction.commandName === "steal") {
+    const target = interaction.options.getUser("user");
+    if (target.bot) return interaction.reply("❌ bots have no money");
+
+    const targetData = await getUser(target.id);
+
+    if (targetData.wallet < 100)
+      return interaction.reply("❌ target too poor");
+
+    await interaction.reply(`🕵️ Trying to steal from <@${target.id}>...`);
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("defend")
+        .setLabel("❌ Defend")
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    const msg = await interaction.followUp({
+      content: `⚠️ <@${target.id}> someone is stealing your money!`,
+      components: [row],
+    });
+
+    stealMap.set(target.id, true);
+
+    const collector = msg.createMessageComponentCollector({
+      time: 5000,
+    });
+
+    let defended = false;
+
+    collector.on("collect", async (btn) => {
+      if (btn.user.id === target.id) {
+        defended = true;
+        stealMap.delete(target.id);
+        await btn.reply({ content: "🛡️ You defended successfully!", ephemeral: true });
+      }
+    });
+
+    collector.on("end", async () => {
+      if (defended) return;
+
+      const thiefGain = Math.floor(Math.random() * targetData.wallet);
+
+      targetData.wallet -= thiefGain;
+      u.wallet += thiefGain;
+
+      await saveUser(target.id, targetData);
+      await saveUser(interaction.user.id, u);
+
+      interaction.followUp(`💰 Steal success! You got ${thiefGain}`);
+    });
+  }
+
+  // ---------------- LEADERBOARD ----------------
   if (interaction.commandName === "leaderboard") {
     const all = await db.all();
 
@@ -352,7 +420,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .filter(x => x.id.startsWith("user_"))
       .map(x => ({
         id: x.id.replace("user_", ""),
-        total: x.value.wallet + x.value.bank,
+        total: x.value.wallet || 0,
       }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
