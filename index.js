@@ -92,7 +92,7 @@ const cooldowns = {
   beg: 15000,
 };
 
-// ---------------- STEAL COOLDOWNS ----------------
+// steal cooldown map
 const stealCooldown = new Map();
 
 // ---------------- VC ----------------
@@ -115,7 +115,7 @@ function forceRejoinVC() {
 
 setInterval(forceRejoinVC, 15000);
 
-// ---------------- BOT STATUS ----------------
+// ---------------- READY ----------------
 client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
@@ -144,36 +144,36 @@ client.once(Events.ClientReady, async () => {
     new SlashCommandBuilder().setName("work").setDescription("💼 Work"),
 
     new SlashCommandBuilder()
-      .setName("transfer")
-      .setDescription("💸 Transfer money")
-      .addUserOption(o =>
-        o.setName("user").setRequired(true)
-      )
-      .addIntegerOption(o =>
-        o.setName("amount").setRequired(true)
-      ),
-
-    new SlashCommandBuilder()
       .setName("coinflip")
       .setDescription("🪙 Gamble")
       .addIntegerOption(o =>
-        o.setName("amount").setRequired(true)
+        o.setName("amount").setDescription("Bet").setRequired(true)
       ),
 
     new SlashCommandBuilder()
       .setName("slots")
       .setDescription("🎰 Slots")
       .addIntegerOption(o =>
-        o.setName("amount").setRequired(true)
+        o.setName("amount").setDescription("Bet").setRequired(true)
       ),
 
     new SlashCommandBuilder().setName("rob").setDescription("🚔 Rob"),
 
     new SlashCommandBuilder()
+      .setName("transfer")
+      .setDescription("💸 Transfer money")
+      .addUserOption(o =>
+        o.setName("user").setDescription("Target").setRequired(true)
+      )
+      .addIntegerOption(o =>
+        o.setName("amount").setDescription("Amount").setRequired(true)
+      ),
+
+    new SlashCommandBuilder()
       .setName("steal")
       .setDescription("🕵️ Steal from someone")
       .addUserOption(o =>
-        o.setName("user").setRequired(true)
+        o.setName("user").setDescription("Target").setRequired(true)
       ),
 
     new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
@@ -182,10 +182,7 @@ client.once(Events.ClientReady, async () => {
   await new REST({ version: "10" })
     .setToken(process.env.TOKEN)
     .put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID,
-        process.env.GUILD_ID
-      ),
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: commands }
     );
 
@@ -198,6 +195,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const u = await getUser(interaction.user.id);
   const now = Date.now();
+
+  // ---------------- PRODhan ----------------
+  if (interaction.commandName === "prodhan") {
+    const images = fs.readdirSync(imageFolder)
+      .filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
+
+    const file = images[Math.floor(Math.random() * images.length)];
+
+    return interaction.reply({
+      content: "🎰 Roulette",
+      files: [path.join(imageFolder, file)],
+    });
+  }
 
   // ---------------- PLAY FIX ----------------
   if (interaction.commandName === "play") {
@@ -234,103 +244,44 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.followUp(`🎵 Now playing **${track.title}**`);
     } catch (e) {
       console.log(e);
-      return interaction.followUp("❌ Music error occurred");
+      return interaction.followUp("❌ Music error");
     }
   }
 
-  // ---------------- STEAL SYSTEM + COOLDOWN ----------------
-  if (interaction.commandName === "steal") {
-    const target = interaction.options.getUser("user");
-    const targetData = await getUser(target.id);
-
-    if (target.bot) return interaction.reply("❌ bots cannot be stolen from");
-    if (targetData.wallet <= 0) return interaction.reply("❌ empty wallet");
-
-    const thiefId = interaction.user.id;
-
-    if (stealCooldown.has(thiefId)) {
-      const cd = stealCooldown.get(thiefId);
-      if (Date.now() < cd) {
-        return interaction.reply("⏳ You are on steal cooldown");
-      }
-    }
-
-    await interaction.reply(`🕵️ Attempting steal on <@${target.id}>`);
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("defend")
-        .setLabel("🛡️ DEFEND (5s)")
-        .setStyle(ButtonStyle.Danger)
-    );
-
-    const msg = await interaction.followUp({
-      content: `⚠️ <@${target.id}> DEFEND NOW!`,
-      components: [row],
-      fetchReply: true,
-    });
-
-    let defended = false;
-
-    const collector = msg.createMessageComponentCollector({ time: 5000 });
-
-    collector.on("collect", async (btn) => {
-      if (btn.user.id === target.id) {
-        defended = true;
-        stealCooldown.set(thiefId, Date.now() + 5 * 60 * 1000);
-
-        await btn.reply({
-          content: "🛡️ SAFE! You defended successfully.",
-          ephemeral: true,
-        });
-      }
-    });
-
-    collector.on("end", async () => {
-      if (defended) {
-        await interaction.followUp("🛡️ Target is safe. Thief got 5 min cooldown.");
-        return;
-      }
-
-      const amount = Math.floor(targetData.wallet * (Math.random() * 0.5 + 0.1));
-
-      targetData.wallet -= amount;
-      u.wallet += amount;
-
-      stealCooldown.set(thiefId, Date.now() + 60 * 1000);
-
-      await saveUser(target.id, targetData);
-      await saveUser(thiefId, u);
-
-      await interaction.followUp(`💰 You stole ${amount} coins from <@${target.id}>`);
-    });
+  if (interaction.commandName === "skip") {
+    const player = kazagumo.players.get(interaction.guild.id);
+    if (!player) return interaction.reply("❌ No music");
+    player.skip();
+    return interaction.reply("⏭️ skipped");
   }
 
-  // ---------------- TRANSFER ----------------
-  if (interaction.commandName === "transfer") {
-    const target = interaction.options.getUser("user");
-    const amount = interaction.options.getInteger("amount");
-
-    if (target.id === interaction.user.id)
-      return interaction.reply("❌ self transfer blocked");
-
-    if (u.wallet < amount)
-      return interaction.reply("❌ not enough money");
-
-    const t = await getUser(target.id);
-
-    u.wallet -= amount;
-    t.wallet += amount;
-
-    await saveUser(interaction.user.id, u);
-    await saveUser(target.id, t);
-
-    return interaction.reply(`💸 Sent ${amount} to <@${target.id}>`);
+  if (interaction.commandName === "stop") {
+    const player = kazagumo.players.get(interaction.guild.id);
+    if (!player) return interaction.reply("❌ No music");
+    player.queue.clear();
+    player.skip();
+    return interaction.reply("🛑 stopped");
   }
 
-  // ---------------- OTHER COMMANDS (UNCHANGED) ----------------
-  if (interaction.commandName === "balance")
+  if (interaction.commandName === "queue") {
+    const player = kazagumo.players.get(interaction.guild.id);
+    if (!player) return interaction.reply("❌ No music");
+
+    const current = player.queue.current;
+    const q = player.queue;
+
+    let msg = current ? `🎵 Now: **${current.title}**\n\n` : "";
+    if (!q.size) return interaction.reply(msg + "📭 Empty");
+
+    msg += q.slice(0, 10).map((t, i) => `${i + 1}. ${t.title}`).join("\n");
+
+    return interaction.reply(msg);
+  }
+
+  // ---------------- ECONOMY ----------------
+  if (interaction.commandName === "balance") {
     return interaction.reply(`💰 Wallet: ${u.wallet}`);
+  }
 
   if (interaction.commandName === "daily") {
     if (now - u.lastDaily < cooldowns.daily)
@@ -357,52 +308,86 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`💼 +${amt}`);
   }
 
-  if (interaction.commandName === "coinflip") {
-    const bet = interaction.options.getInteger("amount");
-    if (u.wallet < bet) return interaction.reply("❌ no money");
+  // ---------------- TRANSFER ----------------
+  if (interaction.commandName === "transfer") {
+    const target = interaction.options.getUser("user");
+    const amount = interaction.options.getInteger("amount");
 
-    const win = Math.random() < 0.5;
-    u.wallet += win ? bet : -bet;
+    if (u.wallet < amount) return interaction.reply("❌ not enough money");
+
+    const t = await getUser(target.id);
+
+    u.wallet -= amount;
+    t.wallet += amount;
+
     await saveUser(interaction.user.id, u);
+    await saveUser(target.id, t);
 
-    return interaction.reply(win ? "🪙 win" : "💀 lose");
+    return interaction.reply(`💸 sent ${amount} to <@${target.id}>`);
   }
 
-  if (interaction.commandName === "slots") {
-    const bet = interaction.options.getInteger("amount");
-    if (u.wallet < bet) return interaction.reply("❌ no money");
+  // ---------------- STEAL ----------------
+  if (interaction.commandName === "steal") {
+    const target = interaction.options.getUser("user");
+    const targetData = await getUser(target.id);
 
-    const e = ["🍒", "🍋", "💎", "7️⃣"];
-    const r = [
-      e[Math.floor(Math.random() * e.length)],
-      e[Math.floor(Math.random() * e.length)],
-      e[Math.floor(Math.random() * e.length)],
-    ];
+    if (target.bot) return interaction.reply("❌ bots cannot be stolen from");
+    if (targetData.wallet <= 0) return interaction.reply("❌ empty wallet");
 
-    const win = r[0] === r[1] && r[1] === r[2];
-    u.wallet += win ? bet * 5 : -bet;
-    await saveUser(interaction.user.id, u);
+    const thiefId = interaction.user.id;
 
-    return interaction.reply(`${r.join(" ")} ${win ? "WIN" : "LOSE"}`);
-  }
-
-  if (interaction.commandName === "rob") {
-    const success = Math.random() < 0.4;
-
-    if (!success) {
-      const fine = Math.floor(Math.random() * 200);
-      u.wallet = Math.max(0, u.wallet - fine);
-      await saveUser(interaction.user.id, u);
-      return interaction.reply(`🚔 -${fine}`);
+    if (stealCooldown.has(thiefId)) {
+      if (Date.now() < stealCooldown.get(thiefId))
+        return interaction.reply("⏳ steal cooldown active");
     }
 
-    const gain = Math.floor(Math.random() * 500);
-    u.wallet += gain;
-    await saveUser(interaction.user.id, u);
+    await interaction.reply(`🕵️ Stealing from <@${target.id}>...`);
 
-    return interaction.reply(`💰 +${gain}`);
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("defend")
+        .setLabel("🛡️ DEFEND (5s)")
+        .setStyle(ButtonStyle.Danger)
+    );
+
+    const msg = await interaction.followUp({
+      content: `⚠️ <@${target.id}> DEFEND NOW!`,
+      components: [row],
+      fetchReply: true,
+    });
+
+    let defended = false;
+
+    const collector = msg.createMessageComponentCollector({ time: 5000 });
+
+    collector.on("collect", async (btn) => {
+      if (btn.user.id === target.id) {
+        defended = true;
+        stealCooldown.set(thiefId, Date.now() + 5 * 60 * 1000);
+
+        await btn.reply({ content: "🛡️ SAFE!", ephemeral: true });
+        await interaction.followUp("🛡️ Target safe. Thief got 5 min cooldown.");
+      }
+    });
+
+    collector.on("end", async () => {
+      if (defended) return;
+
+      const amount = Math.floor(targetData.wallet * (Math.random() * 0.5 + 0.1));
+
+      targetData.wallet -= amount;
+      u.wallet += amount;
+
+      stealCooldown.set(thiefId, Date.now() + 60 * 1000);
+
+      await saveUser(target.id, targetData);
+      await saveUser(thiefId, u);
+
+      await interaction.followUp(`💰 You stole ${amount} coins from <@${target.id}>`);
+    });
   }
 
+  // ---------------- LEADERBOARD ----------------
   if (interaction.commandName === "leaderboard") {
     const all = await db.all();
 
