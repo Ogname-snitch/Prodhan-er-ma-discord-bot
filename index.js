@@ -21,26 +21,17 @@ const { Connectors } = require("shoukaku");
 const { QuickDB } = require("quick.db");
 const db = new QuickDB();
 
-// ---------------- EXPRESS SERVER ----------------
+// ---------------- EXPRESS ----------------
 const app = express();
+app.get("/", (req, res) => res.send("Bot is alive!"));
+app.listen(process.env.PORT || 3000, () => console.log("Web server running"));
 
-app.get("/", (req, res) => {
-  res.send("Bot is alive!");
-});
-
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Web server running");
-});
-
-// ---------------- DISCORD CLIENT ----------------
+// ---------------- DISCORD ----------------
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
 });
 
-// ---------------- LAVALINK NODES ----------------
+// ---------------- LAVALINK ----------------
 const nodes = [
   {
     name: "Lavalink-1",
@@ -50,11 +41,10 @@ const nodes = [
   },
 ];
 
-// ---------------- KAZAGUMO SETUP ----------------
+// ---------------- KAZAGUMO ----------------
 const kazagumo = new Kazagumo(
   {
     defaultSearchEngine: "youtube",
-
     send: (guildId, payload) => {
       const guild = client.guilds.cache.get(guildId);
       if (guild) guild.shard.send(payload);
@@ -64,307 +54,243 @@ const kazagumo = new Kazagumo(
   nodes
 );
 
-// ---------------- DEBUG EVENTS ----------------
-kazagumo.shoukaku.on("ready", (name) => {
-  console.log(`✅ Lavalink connected: ${name}`);
-});
-
-kazagumo.shoukaku.on("error", (name, error) => {
-  console.log(`❌ Lavalink error (${name}):`, error);
-});
-
-// ---------------- IMAGE ROULETTE ----------------
-const imageFolder = path.join(__dirname, "images");
-
-// ---------------- ECONOMY HELPERS ----------------
-async function getUser(userId) {
-  let user = await db.get(`user_${userId}`);
-
+// ---------------- ECONOMY ----------------
+async function getUser(id) {
+  let user = await db.get(`user_${id}`);
   if (!user) {
-    user = {
-      wallet: 0,
-      bank: 0,
-      inventory: [],
-    };
-    await db.set(`user_${userId}`, user);
+    user = { wallet: 0, bank: 0 };
+    await db.set(`user_${id}`, user);
   }
-
   return user;
 }
 
-async function saveUser(userId, data) {
-  await db.set(`user_${userId}`, data);
+async function saveUser(id, data) {
+  await db.set(`user_${id}`, data);
 }
 
-// ---------------- FORCE REJOIN VC SYSTEM ----------------
+function getTotal(user) {
+  return user.wallet + user.bank;
+}
+
+// ---------------- VC STAY SYSTEM ----------------
 function forceRejoinVC() {
-  try {
-    const guild = client.guilds.cache.get(process.env.GUILD_ID);
-    if (!guild) return;
+  const guild = client.guilds.cache.get(process.env.GUILD_ID);
+  if (!guild) return;
 
-    const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-    if (!channel) return;
+  const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
+  if (!channel) return;
 
-    const existing = getVoiceConnection(guild.id);
-    if (existing) return; // already in VC
+  const existing = getVoiceConnection(guild.id);
+  if (existing) return;
 
-    joinVoiceChannel({
-      channelId: channel.id,
-      guildId: guild.id,
-      adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf: true,
-    });
-
-    console.log("🔁 Rejoined voice channel");
-  } catch (err) {
-    console.log("VC REJOIN ERROR:", err);
-  }
+  joinVoiceChannel({
+    channelId: channel.id,
+    guildId: guild.id,
+    adapterCreator: guild.voiceAdapterCreator,
+    selfDeaf: true,
+  });
 }
 
-// ---------------- KEEP VC LOOP ----------------
-setInterval(() => {
-  forceRejoinVC();
-}, 15000); // every 15s
+setInterval(forceRejoinVC, 15000);
 
-// ---------------- READY EVENT ----------------
+// ---------------- READY ----------------
 client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   const commands = [
-    new SlashCommandBuilder()
-      .setName("prodhan")
-      .setDescription("Send random roulette image"),
+    new SlashCommandBuilder().setName("balance").setDescription("Check balance"),
+    new SlashCommandBuilder().setName("daily").setDescription("Daily reward"),
+    new SlashCommandBuilder().setName("beg").setDescription("Beg for money"),
+    new SlashCommandBuilder().setName("work").setDescription("Work"),
 
     new SlashCommandBuilder()
-      .setName("play")
-      .setDescription("Play music")
-      .addStringOption(option =>
-        option.setName("song")
-          .setDescription("Song name or URL")
-          .setRequired(true)
-      ),
+      .setName("deposit")
+      .setDescription("Deposit money")
+      .addIntegerOption(o => o.setName("amount").setRequired(true)),
 
     new SlashCommandBuilder()
-      .setName("skip")
-      .setDescription("Skip song"),
+      .setName("withdraw")
+      .setDescription("Withdraw money")
+      .addIntegerOption(o => o.setName("amount").setRequired(true)),
 
     new SlashCommandBuilder()
-      .setName("stop")
-      .setDescription("Stop music but stay in VC"),
+      .setName("coinflip")
+      .setDescription("50/50 gamble")
+      .addIntegerOption(o => o.setName("amount").setRequired(true)),
 
     new SlashCommandBuilder()
-      .setName("queue")
-      .setDescription("View the current music queue"),
+      .setName("slots")
+      .setDescription("Slot machine")
+      .addIntegerOption(o => o.setName("amount").setRequired(true)),
 
-    // ECONOMY
-    new SlashCommandBuilder().setName("balance").setDescription("Check your Tbabcoins balance"),
-    new SlashCommandBuilder().setName("daily").setDescription("Claim daily Tbabcoins"),
-    new SlashCommandBuilder().setName("beg").setDescription("Beg for Tbabcoins"),
-    new SlashCommandBuilder().setName("work").setDescription("Work for Tbabcoins"),
+    new SlashCommandBuilder()
+      .setName("rob")
+      .setDescription("Try to rob someone"),
+
+    new SlashCommandBuilder()
+      .setName("leaderboard")
+      .setDescription("Top richest users"),
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
   await rest.put(
-    Routes.applicationGuildCommands(
-      process.env.CLIENT_ID,
-      process.env.GUILD_ID
-    ),
+    Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
     { body: commands }
   );
 
-  console.log("✅ Slash commands registered");
+  console.log("✅ Commands registered");
 
-  // initial join
   forceRejoinVC();
 });
 
-// ---------------- COMMAND HANDLER ----------------
+// ---------------- COMMANDS ----------------
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  // ---------------- PRODhan ----------------
-  if (interaction.commandName === "prodhan") {
-    const images = fs.readdirSync(imageFolder).filter(f =>
-      /\.(png|jpg|jpeg|webp)$/i.test(f)
-    );
-
-    if (!images.length)
-      return interaction.reply("❌ No images found.");
-
-    const file = images[Math.floor(Math.random() * images.length)];
-
-    return interaction.reply({
-      content: "🎰 Roulette!",
-      files: [path.join(imageFolder, file)],
-    });
-  }
-
-  // ---------------- PLAY ----------------
-  if (interaction.commandName === "play") {
-    try {
-      const query = interaction.options.getString("song");
-      const voiceChannel = interaction.member.voice.channel;
-
-      if (!voiceChannel)
-        return interaction.reply("❌ Join a voice channel first.");
-
-      await interaction.reply(`🔍 Searching: **${query}**`);
-
-      let player = kazagumo.players.get(interaction.guild.id);
-
-      if (!player) {
-        player = await kazagumo.createPlayer({
-          guildId: interaction.guild.id,
-          textId: interaction.channel.id,
-          voiceId: voiceChannel.id,
-          deaf: true,
-        });
-      }
-
-      const result = await kazagumo.search(query, {
-        requester: interaction.user,
-      });
-
-      if (!result.tracks.length)
-        return interaction.followUp("❌ No songs found.");
-
-      const track = result.tracks[0];
-
-      player.queue.add(track);
-
-      if (!player.playing) {
-        await player.play();
-      }
-
-      return interaction.followUp(`🎵 Now playing: **${track.title}**`);
-
-    } catch (err) {
-      console.error("PLAY ERROR:", err);
-      return interaction.followUp("❌ Failed to play song.");
-    }
-  }
-
-  // ---------------- SKIP ----------------
-  if (interaction.commandName === "skip") {
-    const player = kazagumo.players.get(interaction.guild.id);
-
-    if (!player)
-      return interaction.reply("❌ No music playing.");
-
-    player.skip();
-    return interaction.reply("⏭️ Skipped.");
-  }
-
-  // ---------------- STOP (DO NOT LEAVE VC) ----------------
-  if (interaction.commandName === "stop") {
-    const player = kazagumo.players.get(interaction.guild.id);
-
-    if (!player)
-      return interaction.reply("❌ No music playing.");
-
-    player.queue.clear();
-    player.skip();
-
-    // IMPORTANT: does NOT disconnect
-
-    return interaction.reply("🛑 Music stopped. Staying in VC 24/7.");
-  }
-
-  // ---------------- QUEUE ----------------
-  if (interaction.commandName === "queue") {
-    const player = kazagumo.players.get(interaction.guild.id);
-
-    if (!player)
-      return interaction.reply("❌ No music playing.");
-
-    const current = player.queue.current;
-    const tracks = player.queue;
-
-    let msg = "";
-
-    if (current) {
-      msg += `🎵 Now Playing:\n**${current.title}**\n\n`;
-    }
-
-    if (!tracks.size) {
-      msg += "📭 Queue is empty.";
-    } else {
-      const upcoming = tracks
-        .slice(0, 10)
-        .map((t, i) => `${i + 1}. ${t.title}`)
-        .join("\n");
-
-      msg += `📜 Upcoming Songs:\n${upcoming}`;
-
-      if (tracks.size > 10) {
-        msg += `\n\n...and ${tracks.size - 10} more`;
-      }
-    }
-
-    return interaction.reply(msg);
-  }
-
   // ---------------- BALANCE ----------------
   if (interaction.commandName === "balance") {
-    const user = await getUser(interaction.user.id);
-
+    const u = await getUser(interaction.user.id);
     return interaction.reply(
-      `💰 Wallet: ${user.wallet} Tbabcoins\n🏦 Bank: ${user.bank} Tbabcoins`
+      `💰 Wallet: ${u.wallet} Tbabcoins\n🏦 Bank: ${u.bank} Tbabcoins\n📊 Total: ${getTotal(u)}`
     );
   }
 
   // ---------------- DAILY ----------------
   if (interaction.commandName === "daily") {
-    const cooldown = 24 * 60 * 60 * 1000;
-
+    const cooldown = 86400000;
     const last = await db.get(`daily_${interaction.user.id}`);
 
     if (last && Date.now() - last < cooldown) {
-      const remaining = cooldown - (Date.now() - last);
-      const hours = Math.floor(remaining / 1000 / 60 / 60);
-      return interaction.reply(`⏳ Come back in ${hours} hours.`);
+      const h = Math.floor((cooldown - (Date.now() - last)) / 3600000);
+      return interaction.reply(`⏳ Wait ${h}h`);
     }
 
+    const u = await getUser(interaction.user.id);
     const reward = 1000;
-    const user = await getUser(interaction.user.id);
 
-    user.wallet += reward;
-    await saveUser(interaction.user.id, user);
+    u.wallet += reward;
+    await saveUser(interaction.user.id, u);
     await db.set(`daily_${interaction.user.id}`, Date.now());
 
-    return interaction.reply(`💸 You claimed ${reward} Tbabcoins!`);
+    return interaction.reply(`💸 +${reward} Tbabcoins`);
   }
 
-  // ---------------- BEG ----------------
-  if (interaction.commandName === "beg") {
-    const amount = Math.floor(Math.random() * 200) + 50;
+  // ---------------- DEPOSIT ----------------
+  if (interaction.commandName === "deposit") {
+    const amount = interaction.options.getInteger("amount");
+    const u = await getUser(interaction.user.id);
 
-    const user = await getUser(interaction.user.id);
+    if (u.wallet < amount) return interaction.reply("❌ Not enough money");
 
-    user.wallet += amount;
-    await saveUser(interaction.user.id, user);
+    u.wallet -= amount;
+    u.bank += amount;
 
-    return interaction.reply(`🥺 Someone gave you ${amount} Tbabcoins.`);
+    await saveUser(interaction.user.id, u);
+    return interaction.reply(`🏦 Deposited ${amount}`);
   }
 
-  // ---------------- WORK ----------------
-  if (interaction.commandName === "work") {
-    const jobs = ["Programmer","Chef","Taxi Driver","Streamer","YouTuber"];
+  // ---------------- WITHDRAW ----------------
+  if (interaction.commandName === "withdraw") {
+    const amount = interaction.options.getInteger("amount");
+    const u = await getUser(interaction.user.id);
 
-    const job = jobs[Math.floor(Math.random() * jobs.length)];
-    const amount = Math.floor(Math.random() * 500) + 300;
+    if (u.bank < amount) return interaction.reply("❌ Not enough bank");
 
-    const user = await getUser(interaction.user.id);
+    u.bank -= amount;
+    u.wallet += amount;
 
-    user.wallet += amount;
-    await saveUser(interaction.user.id, user);
+    await saveUser(interaction.user.id, u);
+    return interaction.reply(`💰 Withdrew ${amount}`);
+  }
 
-    return interaction.reply(
-      `💼 You worked as a ${job} and earned ${amount} Tbabcoins.`
-    );
+  // ---------------- COINFLIP ----------------
+  if (interaction.commandName === "coinflip") {
+    const bet = interaction.options.getInteger("amount");
+    const u = await getUser(interaction.user.id);
+
+    if (u.wallet < bet) return interaction.reply("❌ Not enough");
+
+    const win = Math.random() < 0.5;
+
+    if (win) {
+      u.wallet += bet;
+      await saveUser(interaction.user.id, u);
+      return interaction.reply(`🪙 Won +${bet}`);
+    } else {
+      u.wallet -= bet;
+      await saveUser(interaction.user.id, u);
+      return interaction.reply(`💀 Lost -${bet}`);
+    }
+  }
+
+  // ---------------- SLOTS ----------------
+  if (interaction.commandName === "slots") {
+    const bet = interaction.options.getInteger("amount");
+    const u = await getUser(interaction.user.id);
+
+    if (u.wallet < bet) return interaction.reply("❌ Not enough");
+
+    const e = ["🍒","🍋","🍇","💎","7️⃣"];
+
+    const r = [
+      e[Math.floor(Math.random()*e.length)],
+      e[Math.floor(Math.random()*e.length)],
+      e[Math.floor(Math.random()*e.length)],
+    ];
+
+    const win = r[0] === r[1] && r[1] === r[2];
+
+    if (win) {
+      u.wallet += bet * 5;
+      await saveUser(interaction.user.id, u);
+      return interaction.reply(`🎰 ${r.join(" ")} JACKPOT!`);
+    } else {
+      u.wallet -= bet;
+      await saveUser(interaction.user.id, u);
+      return interaction.reply(`🎰 ${r.join(" ")} Lost`);
+    }
+  }
+
+  // ---------------- ROB ----------------
+  if (interaction.commandName === "rob") {
+    const u = await getUser(interaction.user.id);
+
+    const success = Math.random() < 0.4;
+
+    if (!success) {
+      const fine = Math.floor(Math.random() * 200);
+      u.wallet = Math.max(0, u.wallet - fine);
+      await saveUser(interaction.user.id, u);
+      return interaction.reply(`🚔 Caught! Lost ${fine}`);
+    }
+
+    const gain = Math.floor(Math.random() * 500);
+    u.wallet += gain;
+    await saveUser(interaction.user.id, u);
+
+    return interaction.reply(`💰 Stole ${gain} Tbabcoins`);
+  }
+
+  // ---------------- LEADERBOARD ----------------
+  if (interaction.commandName === "leaderboard") {
+    const all = await db.all();
+
+    const users = all
+      .filter(x => x.id.startsWith("user_"))
+      .map(x => ({
+        id: x.id.replace("user_", ""),
+        total: x.value.wallet + x.value.bank,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+
+    const msg = users
+      .map((u, i) => `${i + 1}. <@${u.id}> - ${u.total}`)
+      .join("\n");
+
+    return interaction.reply(`🏆 Top Users:\n${msg}`);
   }
 });
 
-// ---------------- LOGIN ----------------
 client.login(process.env.TOKEN);
