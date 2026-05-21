@@ -28,7 +28,11 @@ app.listen(process.env.PORT || 3000, () => console.log("Web server running"));
 
 // ---------------- DISCORD ----------------
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages,
+  ],
 });
 
 // ---------------- LAVALINK ----------------
@@ -41,7 +45,7 @@ const nodes = [
   },
 ];
 
-// ---------------- MUSIC ----------------
+// ---------------- KAZAGUMO ----------------
 const kazagumo = new Kazagumo(
   {
     defaultSearchEngine: "youtube",
@@ -57,15 +61,22 @@ const kazagumo = new Kazagumo(
 // ---------------- IMAGE ----------------
 const imageFolder = path.join(__dirname, "images");
 
-// ---------------- ECONOMY ----------------
+// ---------------- ECONOMY (PERSISTENT FIX) ----------------
 async function getUser(id) {
   let user = await db.get(`user_${id}`);
 
+  // SAFE FIX: prevents reset after updates
   if (!user || typeof user !== "object") {
-    user = { wallet: 0, bank: 0 };
-    await db.set(`user_${id}`, user);
+    user = {
+      wallet: 0,
+      bank: 0,
+      lastDaily: 0,
+      lastWork: 0,
+      lastBeg: 0,
+    };
   }
 
+  await db.set(`user_${id}`, user);
   return user;
 }
 
@@ -75,6 +86,13 @@ async function saveUser(id, data) {
 
 const getTotal = (u) => u.wallet + u.bank;
 
+// ---------------- COOLDOWNS ----------------
+const cooldowns = {
+  daily: 86400000,
+  work: 30000,
+  beg: 15000,
+};
+
 // ---------------- VC SYSTEM ----------------
 function forceRejoinVC() {
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
@@ -83,8 +101,7 @@ function forceRejoinVC() {
   const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
   if (!channel) return;
 
-  const existing = getVoiceConnection(guild.id);
-  if (existing) return;
+  if (getVoiceConnection(guild.id)) return;
 
   joinVoiceChannel({
     channelId: channel.id,
@@ -101,17 +118,13 @@ client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   const commands = [
-    new SlashCommandBuilder()
-      .setName("prodhan")
-      .setDescription("🎰 Send random image"),
+    new SlashCommandBuilder().setName("prodhan").setDescription("🎰 Image"),
 
     new SlashCommandBuilder()
       .setName("play")
       .setDescription("🎵 Play music")
       .addStringOption(o =>
-        o.setName("song")
-          .setDescription("Song name or URL")
-          .setRequired(true)
+        o.setName("song").setDescription("Song").setRequired(true)
       ),
 
     new SlashCommandBuilder().setName("skip").setDescription("⏭️ Skip"),
@@ -127,33 +140,29 @@ client.once(Events.ClientReady, async () => {
       .setName("coinflip")
       .setDescription("🪙 Gamble")
       .addIntegerOption(o =>
-        o.setName("amount")
-          .setDescription("Bet")
-          .setRequired(true)
+        o.setName("amount").setDescription("Bet").setRequired(true)
       ),
 
     new SlashCommandBuilder()
       .setName("slots")
       .setDescription("🎰 Slots")
       .addIntegerOption(o =>
-        o.setName("amount")
-          .setDescription("Bet")
-          .setRequired(true)
+        o.setName("amount").setDescription("Bet").setRequired(true)
       ),
 
     new SlashCommandBuilder().setName("rob").setDescription("🚔 Rob"),
     new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
   ].map(c => c.toJSON());
 
-  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
-
-  await rest.put(
-    Routes.applicationGuildCommands(
-      process.env.CLIENT_ID,
-      process.env.GUILD_ID
-    ),
-    { body: commands }
-  );
+  await new REST({ version: "10" })
+    .setToken(process.env.TOKEN)
+    .put(
+      Routes.applicationGuildCommands(
+        process.env.CLIENT_ID,
+        process.env.GUILD_ID
+      ),
+      { body: commands }
+    );
 
   console.log("✅ Commands registered");
 });
@@ -164,24 +173,23 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const u = await getUser(interaction.user.id);
 
-  // ---------------- PRODHAN ----------------
+  // ---------------- PRODhan ----------------
   if (interaction.commandName === "prodhan") {
-    const images = fs.readdirSync(imageFolder).filter(f =>
-      /\.(png|jpg|jpeg|webp)$/i.test(f)
-    );
+    const images = fs.readdirSync(imageFolder)
+      .filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
 
     if (!images.length)
-      return interaction.reply("❌ No images found.");
+      return interaction.reply("❌ No images");
 
     const file = images[Math.floor(Math.random() * images.length)];
 
     return interaction.reply({
-      content: "🎰 Roulette!",
+      content: "🎰 Roulette",
       files: [path.join(imageFolder, file)],
     });
   }
 
-  // ---------------- MUSIC FIXED ----------------
+  // ---------------- PLAY (FIXED FULL) ----------------
   if (interaction.commandName === "play") {
     const query = interaction.options.getString("song");
     const vc = interaction.member.voice.channel;
@@ -215,6 +223,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.followUp(`🎵 Now playing **${track.title}**`);
   }
 
+  // ---------------- SKIP/STOP/QUEUE ----------------
   if (interaction.commandName === "skip") {
     const player = kazagumo.players.get(interaction.guild.id);
     if (!player) return interaction.reply("❌ No music");
@@ -238,7 +247,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const q = player.queue;
 
     let msg = current ? `🎵 Now: **${current.title}**\n\n` : "";
-
     if (!q.size) return interaction.reply(msg + "📭 Empty");
 
     msg += q.slice(0, 10).map((t, i) => `${i + 1}. ${t.title}`).join("\n");
@@ -246,39 +254,48 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(msg);
   }
 
-  // ---------------- ECONOMY ----------------
-  if (interaction.commandName === "balance") {
-    return interaction.reply(
-      `💰 Wallet: ${u.wallet}\n🏦 Bank: ${u.bank}\n📊 Total: ${getTotal(u)}`
-    );
-  }
+  // ---------------- ECONOMY + COOLDOWN FIX ----------------
+  const now = Date.now();
 
   if (interaction.commandName === "daily") {
-    const cd = 86400000;
-    if (Date.now() - (u.lastDaily || 0) < cd)
-      return interaction.reply("⏳ wait");
+    if (now - u.lastDaily < cooldowns.daily)
+      return interaction.reply("⏳ daily cooldown");
 
     u.wallet += 1000;
-    u.lastDaily = Date.now();
+    u.lastDaily = now;
 
     await saveUser(interaction.user.id, u);
     return interaction.reply("💸 +1000");
   }
 
   if (interaction.commandName === "beg") {
+    if (now - u.lastBeg < cooldowns.beg)
+      return interaction.reply("⏳ wait");
+
     const amt = Math.floor(Math.random() * 200);
     u.wallet += amt;
+    u.lastBeg = now;
 
     await saveUser(interaction.user.id, u);
     return interaction.reply(`🥺 +${amt}`);
   }
 
   if (interaction.commandName === "work") {
+    if (now - u.lastWork < cooldowns.work)
+      return interaction.reply("⏳ wait");
+
     const amt = Math.floor(Math.random() * 500) + 300;
     u.wallet += amt;
+    u.lastWork = now;
 
     await saveUser(interaction.user.id, u);
     return interaction.reply(`💼 +${amt}`);
+  }
+
+  if (interaction.commandName === "balance") {
+    return interaction.reply(
+      `💰 Wallet: ${u.wallet}\n🏦 Bank: ${u.bank}\n📊 Total: ${getTotal(u)}`
+    );
   }
 
   // ---------------- GAMBLING ----------------
@@ -287,10 +304,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (u.wallet < bet) return interaction.reply("❌ no money");
 
     const win = Math.random() < 0.5;
-
     u.wallet += win ? bet : -bet;
-    await saveUser(interaction.user.id, u);
 
+    await saveUser(interaction.user.id, u);
     return interaction.reply(win ? "🪙 win" : "💀 lose");
   }
 
@@ -306,10 +322,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
     ];
 
     const win = r[0] === r[1] && r[1] === r[2];
-
     u.wallet += win ? bet * 5 : -bet;
-    await saveUser(interaction.user.id, u);
 
+    await saveUser(interaction.user.id, u);
     return interaction.reply(`${r.join(" ")} ${win ? "WIN" : "LOSE"}`);
   }
 
