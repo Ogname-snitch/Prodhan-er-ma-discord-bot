@@ -119,6 +119,7 @@ setInterval(forceRejoinVC, 15000);
 client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
+  // ✅ STATUS FIX
   client.user.setPresence({
     activities: [{ name: "beating prodhan", type: 0 }],
     status: "online",
@@ -143,6 +144,21 @@ client.once(Events.ClientReady, async () => {
     new SlashCommandBuilder().setName("beg").setDescription("🥺 Beg"),
     new SlashCommandBuilder().setName("work").setDescription("💼 Work"),
 
+    // transfer FIXED (was causing validation crash before)
+    new SlashCommandBuilder()
+      .setName("transfer")
+      .setDescription("💸 Transfer money")
+      .addUserOption(o =>
+        o.setName("user")
+          .setDescription("Target user")
+          .setRequired(true)
+      )
+      .addIntegerOption(o =>
+        o.setName("amount")
+          .setDescription("Amount")
+          .setRequired(true)
+      ),
+
     new SlashCommandBuilder()
       .setName("coinflip")
       .setDescription("🪙 Gamble")
@@ -160,20 +176,12 @@ client.once(Events.ClientReady, async () => {
     new SlashCommandBuilder().setName("rob").setDescription("🚔 Rob"),
 
     new SlashCommandBuilder()
-      .setName("transfer")
-      .setDescription("💸 Transfer money")
-      .addUserOption(o =>
-        o.setName("user").setDescription("Target").setRequired(true)
-      )
-      .addIntegerOption(o =>
-        o.setName("amount").setDescription("Amount").setRequired(true)
-      ),
-
-    new SlashCommandBuilder()
       .setName("steal")
       .setDescription("🕵️ Steal from someone")
       .addUserOption(o =>
-        o.setName("user").setDescription("Target").setRequired(true)
+        o.setName("user")
+          .setDescription("Target user")
+          .setRequired(true)
       ),
 
     new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
@@ -196,20 +204,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const u = await getUser(interaction.user.id);
   const now = Date.now();
 
-  // ---------------- PRODhan ----------------
-  if (interaction.commandName === "prodhan") {
-    const images = fs.readdirSync(imageFolder)
-      .filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f));
-
-    const file = images[Math.floor(Math.random() * images.length)];
-
-    return interaction.reply({
-      content: "🎰 Roulette",
-      files: [path.join(imageFolder, file)],
-    });
-  }
-
-  // ---------------- PLAY FIX ----------------
+  // ---------------- PLAY (FIXED NOT STUCK) ----------------
   if (interaction.commandName === "play") {
     const query = interaction.options.getString("song");
     const vc = interaction.member.voice.channel;
@@ -242,12 +237,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!player.playing) await player.play();
 
       return interaction.followUp(`🎵 Now playing **${track.title}**`);
-    } catch (e) {
-      console.log(e);
+    } catch (err) {
+      console.log(err);
       return interaction.followUp("❌ Music error");
     }
   }
 
+  // ---------------- OTHER MUSIC ----------------
   if (interaction.commandName === "skip") {
     const player = kazagumo.players.get(interaction.guild.id);
     if (!player) return interaction.reply("❌ No music");
@@ -274,14 +270,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (!q.size) return interaction.reply(msg + "📭 Empty");
 
     msg += q.slice(0, 10).map((t, i) => `${i + 1}. ${t.title}`).join("\n");
-
     return interaction.reply(msg);
   }
 
   // ---------------- ECONOMY ----------------
-  if (interaction.commandName === "balance") {
+  if (interaction.commandName === "balance")
     return interaction.reply(`💰 Wallet: ${u.wallet}`);
-  }
 
   if (interaction.commandName === "daily") {
     if (now - u.lastDaily < cooldowns.daily)
@@ -326,7 +320,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`💸 sent ${amount} to <@${target.id}>`);
   }
 
-  // ---------------- STEAL ----------------
+  // ---------------- STEAL (5 min / 1 min cooldown FIXED) ----------------
   if (interaction.commandName === "steal") {
     const target = interaction.options.getUser("user");
     const targetData = await getUser(target.id);
@@ -341,7 +335,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return interaction.reply("⏳ steal cooldown active");
     }
 
-    await interaction.reply(`🕵️ Stealing from <@${target.id}>...`);
+    await interaction.reply(`🕵️ Attempting steal from <@${target.id}>`);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -363,27 +357,35 @@ client.on(Events.InteractionCreate, async (interaction) => {
     collector.on("collect", async (btn) => {
       if (btn.user.id === target.id) {
         defended = true;
+
+        // 5 MIN COOLDOWN if defended
         stealCooldown.set(thiefId, Date.now() + 5 * 60 * 1000);
 
         await btn.reply({ content: "🛡️ SAFE!", ephemeral: true });
-        await interaction.followUp("🛡️ Target safe. Thief got 5 min cooldown.");
       }
     });
 
     collector.on("end", async () => {
-      if (defended) return;
+      if (defended) {
+        await interaction.followUp("🛡️ Target defended. Thief got 5 min cooldown.");
+        return;
+      }
 
-      const amount = Math.floor(targetData.wallet * (Math.random() * 0.5 + 0.1));
+      const amount =
+        Math.floor(targetData.wallet * (Math.random() * 0.5 + 0.1));
 
       targetData.wallet -= amount;
       u.wallet += amount;
 
+      // 1 MIN COOLDOWN if success
       stealCooldown.set(thiefId, Date.now() + 60 * 1000);
 
       await saveUser(target.id, targetData);
       await saveUser(thiefId, u);
 
-      await interaction.followUp(`💰 You stole ${amount} coins from <@${target.id}>`);
+      await interaction.followUp(
+        `💰 You stole ${amount} coins from <@${target.id}>`
+      );
     });
   }
 
