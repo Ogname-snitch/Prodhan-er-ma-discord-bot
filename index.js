@@ -53,12 +53,12 @@ const kazagumo = new Kazagumo(
   {
     defaultSearchEngine: "youtube",
     send: (guildId, payload) => {
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) return;
       try {
-        const guild = client.guilds.cache.get(guildId);
-        if (!guild) return;
         guild.shard?.send(payload);
       } catch (e) {
-        console.log("Lavalink send error:", e);
+        console.log("Shard send error:", e);
       }
     },
   },
@@ -72,11 +72,7 @@ const imageFolder = path.join(__dirname, "images");
 // ---------------- ECONOMY ----------------
 async function getUser(id) {
   let user = await db.get(`user_${id}`);
-
-  if (!user || typeof user !== "object") {
-    user = { wallet: 0 };
-  }
-
+  if (!user || typeof user !== "object") user = { wallet: 0 };
   await db.set(`user_${id}`, user);
   return user;
 }
@@ -92,7 +88,7 @@ function drawCard() {
   return Math.floor(Math.random() * 11) + 1;
 }
 
-function calc(hand) {
+function sum(hand) {
   return hand.reduce((a, b) => a + b, 0);
 }
 
@@ -121,9 +117,7 @@ client.once(Events.ClientReady, async () => {
 
     new SlashCommandBuilder().setName("balance").setDescription("💰 Balance"),
 
-    new SlashCommandBuilder()
-      .setName("slots")
-      .setDescription("🎰 Slots game"),
+    new SlashCommandBuilder().setName("slots").setDescription("🎰 Slots"),
 
     new SlashCommandBuilder()
       .setName("blackjack")
@@ -136,7 +130,10 @@ client.once(Events.ClientReady, async () => {
   await new REST({ version: "10" })
     .setToken(process.env.TOKEN)
     .put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      Routes.applicationGuildCommands(
+        process.env.CLIENT_ID,
+        process.env.GUILD_ID
+      ),
       { body: commands }
     );
 
@@ -198,25 +195,25 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       return interaction.followUp(`🎵 Now playing **${track.title}**`);
     } catch (e) {
-      console.log(e);
-      return interaction.followUp("❌ Music error (check Lavalink)");
+      console.log("PLAY ERROR:", e);
+      return interaction.followUp("❌ Music error");
     }
   }
 
-  // ---------------- SKIP (NO VC LEAVE) ----------------
+  // ---------------- SKIP ----------------
   if (interaction.isChatInputCommand() && interaction.commandName === "skip") {
     const player = kazagumo.players.get(interaction.guild.id);
     if (!player) return interaction.reply("❌ No music");
 
     try {
       await player.skip();
-      return interaction.reply("⏭️ Skipped (stayed in VC)");
+      return interaction.reply("⏭️ Skipped (stays in VC)");
     } catch {
       return interaction.reply("❌ Skip failed");
     }
   }
 
-  // ---------------- STOP (NO VC LEAVE EVER) ----------------
+  // ---------------- STOP (NO VC LEAVE) ----------------
   if (interaction.isChatInputCommand() && interaction.commandName === "stop") {
     const player = kazagumo.players.get(interaction.guild.id);
     if (!player) return interaction.reply("❌ No music");
@@ -248,24 +245,24 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`💰 ${u.wallet}`);
   }
 
-  // ---------------- SLOTS (FIXED) ----------------
+  // ---------------- SLOTS ----------------
   if (interaction.commandName === "slots") {
-    const symbols = ["🍒", "🍋", "🍊", "💎"];
-    const roll = () => symbols[Math.floor(Math.random() * symbols.length)];
+    const r = ["🍒", "🍋", "💎", "🍊"];
+    const a = r[Math.floor(Math.random() * r.length)];
+    const b = r[Math.floor(Math.random() * r.length)];
+    const c = r[Math.floor(Math.random() * r.length)];
 
-    const a = roll(), b = roll(), c = roll();
-
-    let win = a === b && b === c;
+    const win = a === b && b === c;
 
     if (win) u.wallet += 500;
     else u.wallet -= 100;
 
     await saveUser(interaction.user.id, u);
 
-    return interaction.reply(`${a} | ${b} | ${c}\n${win ? "🎉 WIN +500" : "❌ LOSE -100"}`);
+    return interaction.reply(`${a} | ${b} | ${c}\n${win ? "WIN +500" : "LOSE -100"}`);
   }
 
-  // ---------------- BLACKJACK (FIXED) ----------------
+  // ---------------- BLACKJACK ----------------
   if (interaction.commandName === "blackjack") {
     const bet = interaction.options.getInteger("bet");
 
@@ -282,7 +279,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     );
 
     return interaction.reply({
-      content: `🃏 Your: ${calc(player)} | Dealer: ${dealer[0]}`,
+      content: `🃏 You: ${sum(player)} | Dealer: ${dealer[0]}`,
       components: [row],
     });
   }
@@ -298,7 +295,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (interaction.customId === "hit") {
       p.push(drawCard());
 
-      if (calc(p) > 21) {
+      if (sum(p) > 21) {
         blackjackGames.delete(interaction.user.id);
         u.wallet -= game.bet;
         await saveUser(interaction.user.id, u);
@@ -310,16 +307,16 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
 
       return interaction.update({
-        content: `🃏 Your: ${calc(p)} | Dealer: ${d[0]}`,
+        content: `🃏 You: ${sum(p)} | Dealer: ${d[0]}`,
         components: interaction.message.components,
       });
     }
 
     if (interaction.customId === "stand") {
-      while (calc(d) < 17) d.push(drawCard());
+      while (sum(d) < 17) d.push(drawCard());
 
-      const ps = calc(p);
-      const ds = calc(d);
+      const ps = sum(p);
+      const ds = sum(d);
 
       blackjackGames.delete(interaction.user.id);
 
@@ -334,6 +331,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
     }
   }
-
-  client.login(process.env.TOKEN);
 });
+
+client.login(process.env.TOKEN);
