@@ -28,7 +28,10 @@ app.listen(process.env.PORT || 3000, () => console.log("Web server running"));
 
 // ---------------- DISCORD ----------------
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+  ],
 });
 
 // ---------------- LAVALINK ----------------
@@ -68,11 +71,9 @@ async function saveUser(id, data) {
   await db.set(`user_${id}`, data);
 }
 
-function getTotal(user) {
-  return user.wallet + user.bank;
-}
+const total = (u) => u.wallet + u.bank;
 
-// ---------------- VC STAY SYSTEM ----------------
+// ---------------- FORCE VC STAY SYSTEM ----------------
 function forceRejoinVC() {
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
   if (!guild) return;
@@ -105,37 +106,43 @@ client.once(Events.ClientReady, async () => {
 
     new SlashCommandBuilder()
       .setName("deposit")
-      .setDescription("Deposit money")
-      .addIntegerOption(o => o.setName("amount").setRequired(true)),
+      .setDescription("Deposit Tbabcoins")
+      .addIntegerOption(o =>
+        o.setName("amount").setDescription("Amount").setRequired(true)
+      ),
 
     new SlashCommandBuilder()
       .setName("withdraw")
-      .setDescription("Withdraw money")
-      .addIntegerOption(o => o.setName("amount").setRequired(true)),
+      .setDescription("Withdraw Tbabcoins")
+      .addIntegerOption(o =>
+        o.setName("amount").setDescription("Amount").setRequired(true)
+      ),
 
     new SlashCommandBuilder()
       .setName("coinflip")
       .setDescription("50/50 gamble")
-      .addIntegerOption(o => o.setName("amount").setRequired(true)),
+      .addIntegerOption(o =>
+        o.setName("amount").setDescription("Bet amount").setRequired(true)
+      ),
 
     new SlashCommandBuilder()
       .setName("slots")
       .setDescription("Slot machine")
-      .addIntegerOption(o => o.setName("amount").setRequired(true)),
+      .addIntegerOption(o =>
+        o.setName("amount").setDescription("Bet amount").setRequired(true)
+      ),
 
-    new SlashCommandBuilder()
-      .setName("rob")
-      .setDescription("Try to rob someone"),
-
-    new SlashCommandBuilder()
-      .setName("leaderboard")
-      .setDescription("Top richest users"),
+    new SlashCommandBuilder().setName("rob").setDescription("Rob someone"),
+    new SlashCommandBuilder().setName("leaderboard").setDescription("Top users"),
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
   await rest.put(
-    Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+    Routes.applicationGuildCommands(
+      process.env.CLIENT_ID,
+      process.env.GUILD_ID
+    ),
     { body: commands }
   );
 
@@ -148,15 +155,15 @@ client.once(Events.ClientReady, async () => {
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  // ---------------- BALANCE ----------------
+  // BALANCE
   if (interaction.commandName === "balance") {
     const u = await getUser(interaction.user.id);
     return interaction.reply(
-      `💰 Wallet: ${u.wallet} Tbabcoins\n🏦 Bank: ${u.bank} Tbabcoins\n📊 Total: ${getTotal(u)}`
+      `💰 Wallet: ${u.wallet} Tbabcoins\n🏦 Bank: ${u.bank} Tbabcoins\n📊 Total: ${total(u)}`
     );
   }
 
-  // ---------------- DAILY ----------------
+  // DAILY
   if (interaction.commandName === "daily") {
     const cooldown = 86400000;
     const last = await db.get(`daily_${interaction.user.id}`);
@@ -167,76 +174,75 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     const u = await getUser(interaction.user.id);
-    const reward = 1000;
+    u.wallet += 1000;
 
-    u.wallet += reward;
     await saveUser(interaction.user.id, u);
     await db.set(`daily_${interaction.user.id}`, Date.now());
 
-    return interaction.reply(`💸 +${reward} Tbabcoins`);
+    return interaction.reply(`💸 +1000 Tbabcoins`);
   }
 
-  // ---------------- DEPOSIT ----------------
+  // DEPOSIT
   if (interaction.commandName === "deposit") {
-    const amount = interaction.options.getInteger("amount");
+    const amt = interaction.options.getInteger("amount");
     const u = await getUser(interaction.user.id);
 
-    if (u.wallet < amount) return interaction.reply("❌ Not enough money");
+    if (u.wallet < amt) return interaction.reply("❌ Not enough wallet");
 
-    u.wallet -= amount;
-    u.bank += amount;
+    u.wallet -= amt;
+    u.bank += amt;
 
     await saveUser(interaction.user.id, u);
-    return interaction.reply(`🏦 Deposited ${amount}`);
+    return interaction.reply(`🏦 Deposited ${amt}`);
   }
 
-  // ---------------- WITHDRAW ----------------
+  // WITHDRAW
   if (interaction.commandName === "withdraw") {
-    const amount = interaction.options.getInteger("amount");
+    const amt = interaction.options.getInteger("amount");
     const u = await getUser(interaction.user.id);
 
-    if (u.bank < amount) return interaction.reply("❌ Not enough bank");
+    if (u.bank < amt) return interaction.reply("❌ Not enough bank");
 
-    u.bank -= amount;
-    u.wallet += amount;
+    u.bank -= amt;
+    u.wallet += amt;
 
     await saveUser(interaction.user.id, u);
-    return interaction.reply(`💰 Withdrew ${amount}`);
+    return interaction.reply(`💰 Withdrew ${amt}`);
   }
 
-  // ---------------- COINFLIP ----------------
+  // COINFLIP
   if (interaction.commandName === "coinflip") {
     const bet = interaction.options.getInteger("amount");
     const u = await getUser(interaction.user.id);
 
-    if (u.wallet < bet) return interaction.reply("❌ Not enough");
+    if (u.wallet < bet) return interaction.reply("❌ Not enough money");
 
     const win = Math.random() < 0.5;
 
     if (win) {
       u.wallet += bet;
       await saveUser(interaction.user.id, u);
-      return interaction.reply(`🪙 Won +${bet}`);
+      return interaction.reply(`🪙 Won ${bet} Tbabcoins`);
     } else {
       u.wallet -= bet;
       await saveUser(interaction.user.id, u);
-      return interaction.reply(`💀 Lost -${bet}`);
+      return interaction.reply(`💀 Lost ${bet} Tbabcoins`);
     }
   }
 
-  // ---------------- SLOTS ----------------
+  // SLOTS
   if (interaction.commandName === "slots") {
     const bet = interaction.options.getInteger("amount");
     const u = await getUser(interaction.user.id);
 
-    if (u.wallet < bet) return interaction.reply("❌ Not enough");
+    if (u.wallet < bet) return interaction.reply("❌ Not enough money");
 
-    const e = ["🍒","🍋","🍇","💎","7️⃣"];
+    const emojis = ["🍒","🍋","🍇","💎","7️⃣"];
 
     const r = [
-      e[Math.floor(Math.random()*e.length)],
-      e[Math.floor(Math.random()*e.length)],
-      e[Math.floor(Math.random()*e.length)],
+      emojis[Math.floor(Math.random()*emojis.length)],
+      emojis[Math.floor(Math.random()*emojis.length)],
+      emojis[Math.floor(Math.random()*emojis.length)],
     ];
 
     const win = r[0] === r[1] && r[1] === r[2];
@@ -244,7 +250,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     if (win) {
       u.wallet += bet * 5;
       await saveUser(interaction.user.id, u);
-      return interaction.reply(`🎰 ${r.join(" ")} JACKPOT!`);
+      return interaction.reply(`🎰 ${r.join(" ")} JACKPOT x5!`);
     } else {
       u.wallet -= bet;
       await saveUser(interaction.user.id, u);
@@ -252,13 +258,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
 
-  // ---------------- ROB ----------------
+  // ROB
   if (interaction.commandName === "rob") {
     const u = await getUser(interaction.user.id);
 
-    const success = Math.random() < 0.4;
-
-    if (!success) {
+    if (Math.random() < 0.4) {
       const fine = Math.floor(Math.random() * 200);
       u.wallet = Math.max(0, u.wallet - fine);
       await saveUser(interaction.user.id, u);
@@ -267,12 +271,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     const gain = Math.floor(Math.random() * 500);
     u.wallet += gain;
-    await saveUser(interaction.user.id, u);
 
+    await saveUser(interaction.user.id, u);
     return interaction.reply(`💰 Stole ${gain} Tbabcoins`);
   }
 
-  // ---------------- LEADERBOARD ----------------
+  // LEADERBOARD
   if (interaction.commandName === "leaderboard") {
     const all = await db.all();
 
@@ -280,17 +284,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .filter(x => x.id.startsWith("user_"))
       .map(x => ({
         id: x.id.replace("user_", ""),
-        total: x.value.wallet + x.value.bank,
+        total: (x.value?.wallet || 0) + (x.value?.bank || 0),
       }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
 
-    const msg = users
-      .map((u, i) => `${i + 1}. <@${u.id}> - ${u.total}`)
-      .join("\n");
-
-    return interaction.reply(`🏆 Top Users:\n${msg}`);
+    return interaction.reply(
+      "🏆 Top Users:\n" +
+      users.map((u,i)=>`${i+1}. <@${u.id}> - ${u.total}`).join("\n")
+    );
   }
 });
 
+// ---------------- LOGIN ----------------
 client.login(process.env.TOKEN);
