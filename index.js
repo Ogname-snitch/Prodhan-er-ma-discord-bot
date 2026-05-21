@@ -91,8 +91,6 @@ const cooldowns = {
   beg: 15000,
 };
 
-const stealCooldown = new Map();
-
 // ---------------- BLACKJACK ----------------
 const blackjack = new Map();
 
@@ -104,7 +102,7 @@ function sum(a) {
   return a.reduce((x, y) => x + y, 0);
 }
 
-// ---------------- VC AUTO JOIN (NO LEAVE EVER) ----------------
+// ---------------- VC AUTO JOIN ----------------
 function stayInVC() {
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
   if (!guild) return;
@@ -153,32 +151,11 @@ client.once(Events.ClientReady, async () => {
     new SlashCommandBuilder().setName("work").setDescription("💼 Work"),
 
     new SlashCommandBuilder()
-  .setName("slots")
-  .setDescription("🎰 Slots game")
-  .addIntegerOption(o =>
-    o.setName("bet")
-      .setDescription("Bet amount")
-      .setRequired(true)
-  ),
-
-    new SlashCommandBuilder()
-      .setName("transfer")
-      .setDescription("💸 Transfer")
-      .addUserOption(o =>
-        o.setName("user").setDescription("Target").setRequired(true)
-      )
+      .setName("slots")
+      .setDescription("🎰 Slots")
       .addIntegerOption(o =>
-        o.setName("amount").setDescription("Amount").setRequired(true)
+        o.setName("bet").setDescription("Bet").setRequired(true)
       ),
-
-    new SlashCommandBuilder()
-      .setName("steal")
-      .setDescription("🕵️ Steal")
-      .addUserOption(o =>
-        o.setName("user").setDescription("Target").setRequired(true)
-      ),
-
-    new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
 
     new SlashCommandBuilder()
       .setName("blackjack")
@@ -195,7 +172,7 @@ client.once(Events.ClientReady, async () => {
       { body: commands }
     );
 
-  console.log("✅ Commands registered");
+  console.log("Commands registered");
 });
 
 // ---------------- INTERACTIONS ----------------
@@ -204,7 +181,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const u = await getUser(interaction.user.id);
 
-  // ---------------- PRODhan ----------------
+  // ---------------- PRODHAN ----------------
   if (interaction.commandName === "prodhan") {
     const images = fs.existsSync(imageFolder)
       ? fs.readdirSync(imageFolder).filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f))
@@ -222,84 +199,74 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   // ---------------- PLAY ----------------
   if (interaction.commandName === "play") {
-  const query = interaction.options.getString("song");
-  const vc = interaction.member.voice.channel;
+    const query = interaction.options.getString("song");
+    const vc = interaction.member.voice.channel;
 
-  if (!vc) return interaction.reply("❌ Join a voice channel first");
+    if (!vc) return interaction.reply("❌ Join VC first");
 
-  await interaction.reply(`🔍 Searching: **${query}**`);
+    await interaction.reply(`🔍 Searching **${query}**`);
 
-  try {
-    let player = kazagumo.players.get(interaction.guild.id);
+    try {
+      let player = kazagumo.players.get(interaction.guild.id);
 
-    if (!player) {
-      player = await kazagumo.createPlayer({
-        guildId: interaction.guild.id,
-        textId: interaction.channel.id,
-        voiceId: vc.id,
-        deaf: true,
-      });
+      if (!player) {
+        player = await kazagumo.createPlayer({
+          guildId: interaction.guild.id,
+          textId: interaction.channel.id,
+          voiceId: vc.id,
+          deaf: true,
+        });
+      }
+
+      const res = await kazagumo.search(query, { requester: interaction.user });
+
+      if (!res?.tracks?.length)
+        return interaction.followUp("❌ No songs found");
+
+      const track = res.tracks[0];
+
+      player.queue.add(track);
+
+      if (!player.playing) await player.play();
+
+      return interaction.followUp(`🎵 Now playing **${track.title}**`);
+    } catch (err) {
+      console.log("PLAY ERROR:", err);
+      return interaction.followUp("❌ Music error");
     }
-
-    const res = await kazagumo.search(query, { requester: interaction.user });
-
-    if (!res?.tracks?.length)
-      return interaction.followUp("❌ No songs found");
-
-    const track = res.tracks[0];
-
-    player.queue.add(track);
-
-    if (!player.playing) await player.play();
-
-    return interaction.followUp(`🎵 Now playing **${track.title}**`);
-  } catch (err) {
-    console.log("PLAY ERROR:", err);
-    return interaction.followUp("❌ Music system error (check Lavalink)");
   }
-}
 
   // ---------------- SKIP ----------------
- if (interaction.commandName === "skip") {
-  const player = kazagumo.players.get(interaction.guild.id);
+  if (interaction.commandName === "skip") {
+    const player = kazagumo.players.get(interaction.guild.id);
+    if (!player) return interaction.reply("❌ No music");
 
-  if (!player) return interaction.reply("❌ No music playing");
-
-  try {
-    await player.skip();
-    return interaction.reply("⏭️ Skipped");
-  } catch (e) {
-    console.log(e);
-    return interaction.reply("❌ Skip failed");
+    try {
+      await player.skip();
+      return interaction.reply("⏭️ Skipped");
+    } catch {
+      return interaction.reply("❌ Skip failed");
+    }
   }
-}
 
-  // ---------------- STOP ----------------
+  // ---------------- STOP (NO VC LEAVE) ----------------
   if (interaction.commandName === "stop") {
-  const player = kazagumo.players.get(interaction.guild.id);
+    const player = kazagumo.players.get(interaction.guild.id);
+    if (!player) return interaction.reply("❌ No music");
 
-  if (!player) return interaction.reply("❌ No music playing");
-
-  try {
     player.queue.clear();
-
-    // IMPORTANT: DO NOT destroy player (this is what caused VC leave issues)
-    await player.skip();
+    await player.skip().catch(() => {});
 
     return interaction.reply("🛑 Stopped (stayed in VC)");
-  } catch (e) {
-    console.log(e);
-    return interaction.reply("❌ Stop failed");
   }
-}
 
   // ---------------- QUEUE ----------------
   if (interaction.commandName === "queue") {
     const player = kazagumo.players.get(interaction.guild.id);
     if (!player) return interaction.reply("❌ No music");
 
+    const current = player.queue.current;
     const q = player.queue;
-    const current = q.current;
 
     let msg = current ? `🎵 Now: **${current.title}**\n\n` : "";
     if (!q.size) return interaction.reply(msg + "📭 Empty");
@@ -333,59 +300,34 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`💼 +${a}`);
   }
 
-  // ---------------- TRANSFER ----------------
-  if (interaction.commandName === "transfer") {
-    const t = interaction.options.getUser("user");
-    const a = interaction.options.getInteger("amount");
+  // ---------------- SLOTS (FIXED - NO CRASH) ----------------
+  if (interaction.commandName === "slots") {
+    const bet = interaction.options.getInteger("bet");
 
-    if (u.wallet < a) return interaction.reply("❌ not enough money");
+    if (u.wallet < bet) return interaction.reply("❌ Not enough money");
 
-    const target = await getUser(t.id);
+    const symbols = ["🍒", "🍋", "🍇", "💎", "7️⃣"];
+    const roll = () => symbols[Math.floor(Math.random() * symbols.length)];
 
-    u.wallet -= a;
-    target.wallet += a;
+    const r1 = roll();
+    const r2 = roll();
+    const r3 = roll();
 
-    await saveUser(interaction.user.id, u);
-    await saveUser(t.id, target);
+    let multi = 0;
 
-    return interaction.reply(`💸 sent ${a} to <@${t.id}>`);
-  }
+    if (r1 === r2 && r2 === r3) multi = 5;
+    else if (r1 === r2 || r2 === r3 || r1 === r3) multi = 2;
 
-  // ---------------- STEAL ----------------
-  if (interaction.commandName === "steal") {
-    const t = interaction.options.getUser("user");
-    const target = await getUser(t.id);
-
-    if (target.wallet <= 0) return interaction.reply("❌ empty wallet");
-
-    const amount = Math.floor(target.wallet * Math.random());
-
-    target.wallet -= amount;
-    u.wallet += amount;
-
-    await saveUser(t.id, target);
-    await saveUser(interaction.user.id, u);
-
-    return interaction.reply(`🕵️ stole ${amount} coins from <@${t.id}>`);
-  }
-
-  // ---------------- LEADERBOARD ----------------
-  if (interaction.commandName === "leaderboard") {
-    const all = await db.all();
-
-    const users = all
-      .filter(x => x.id.startsWith("user_"))
-      .map(x => ({
-        id: x.id.replace("user_", ""),
-        total: x.value.wallet || 0,
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
-
-    return interaction.reply(
-      "🏆 Top:\n" +
-      users.map((u, i) => `${i + 1}. <@${u.id}> - ${u.total}`).join("\n")
-    );
+    if (multi > 0) {
+      const win = bet * multi;
+      u.wallet += win;
+      await saveUser(interaction.user.id, u);
+      return interaction.reply(`🎰 | ${r1} | ${r2} | ${r3} |\n🎉 You won ${win}`);
+    } else {
+      u.wallet -= bet;
+      await saveUser(interaction.user.id, u);
+      return interaction.reply(`🎰 | ${r1} | ${r2} | ${r3} |\n💀 You lost ${bet}`);
+    }
   }
 
   // ---------------- BLACKJACK ----------------
@@ -458,42 +400,5 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
 });
-
-// ---------------- SLOTS ----------------
-
-if (interaction.commandName === "slots") {
-  const bet = interaction.options.getInteger("bet");
-
-  if (u.wallet < bet) return interaction.reply("❌ Not enough money");
-
-  const symbols = ["🍒", "🍋", "🍇", "💎", "7️⃣"];
-  const roll = () => symbols[Math.floor(Math.random() * symbols.length)];
-
-  const r1 = roll();
-  const r2 = roll();
-  const r3 = roll();
-
-  let winMultiplier = 0;
-
-  if (r1 === r2 && r2 === r3) winMultiplier = 5;
-  else if (r1 === r2 || r2 === r3 || r1 === r3) winMultiplier = 2;
-
-  let resultText;
-
-  if (winMultiplier > 0) {
-    const win = bet * winMultiplier;
-    u.wallet += win;
-    resultText = `🎉 You won ${win}`;
-  } else {
-    u.wallet -= bet;
-    resultText = `💀 You lost ${bet}`;
-  }
-
-  await saveUser(interaction.user.id, u);
-
-  return interaction.reply(
-    `🎰 | ${r1} | ${r2} | ${r3} |\n${resultText}`
-  );
-}
 
 client.login(process.env.TOKEN);
