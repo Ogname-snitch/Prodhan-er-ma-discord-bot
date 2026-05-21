@@ -69,12 +69,7 @@ async function getUser(id) {
   let user = await db.get(`user_${id}`);
 
   if (!user || typeof user !== "object") {
-    user = {
-      wallet: 0,
-      lastDaily: 0,
-      lastWork: 0,
-      lastBeg: 0,
-    };
+    user = { wallet: 0, lastDaily: 0, lastWork: 0, lastBeg: 0 };
   }
 
   await db.set(`user_${id}`, user);
@@ -114,11 +109,21 @@ function forceRejoinVC() {
 
 setInterval(forceRejoinVC, 15000);
 
+// ---------------- BLACKJACK SYSTEM ----------------
+const blackjackGames = new Map();
+
+function drawCard() {
+  return Math.floor(Math.random() * 11) + 1;
+}
+
+function calcHand(hand) {
+  return hand.reduce((a, b) => a + b, 0);
+}
+
 // ---------------- READY ----------------
 client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-  // STATUS FIX
   client.user.setPresence({
     activities: [{ name: "beating prodhan", type: 0 }],
     status: "online",
@@ -145,7 +150,7 @@ client.once(Events.ClientReady, async () => {
 
     new SlashCommandBuilder()
       .setName("transfer")
-      .setDescription("💸 Transfer money")
+      .setDescription("💸 Transfer")
       .addUserOption(o =>
         o.setName("user").setDescription("Target").setRequired(true)
       )
@@ -153,157 +158,242 @@ client.once(Events.ClientReady, async () => {
         o.setName("amount").setDescription("Amount").setRequired(true)
       ),
 
-    new SlashCommandBuilder()
-      .setName("coinflip")
-      .setDescription("🪙 Gamble")
-      .addIntegerOption(o =>
-        o.setName("amount").setDescription("Bet").setRequired(true)
-      ),
+    new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
 
-    new SlashCommandBuilder()
-      .setName("slots")
-      .setDescription("🎰 Slots")
-      .addIntegerOption(o =>
-        o.setName("amount").setDescription("Bet").setRequired(true)
-      ),
-
-    new SlashCommandBuilder().setName("rob").setDescription("🚔 Rob"),
-
-    new SlashCommandBuilder()
-      .setName("steal")
-      .setDescription("🕵️ Steal")
-      .addUserOption(o =>
-        o.setName("user").setDescription("Target").setRequired(true)
-      ),
-
-    // 🃏 BLACKJACK ADDED
+    // BLACKJACK
     new SlashCommandBuilder()
       .setName("blackjack")
-      .setDescription("🃏 Play blackjack")
+      .setDescription("🃏 Blackjack")
       .addIntegerOption(o =>
-        o.setName("amount").setDescription("Bet").setRequired(true)
+        o.setName("bet").setDescription("Bet").setRequired(true)
       ),
-
-    new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
   ].map(c => c.toJSON());
 
   await new REST({ version: "10" })
     .setToken(process.env.TOKEN)
     .put(
-      Routes.applicationGuildCommands(
-        process.env.CLIENT_ID,
-        process.env.GUILD_ID
-      ),
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
       { body: commands }
     );
 
   console.log("✅ Commands registered");
 });
 
-// ---------------- BLACKJACK ----------------
-const bj = new Map();
-
-function draw() {
-  return Math.floor(Math.random() * 11) + 1;
-}
-
+// ---------------- INTERACTIONS ----------------
 client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
+  if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
 
   const u = await getUser(interaction.user.id);
-  const now = Date.now();
 
-  // ---------------- BLACKJACK ----------------
-  if (interaction.commandName === "blackjack") {
-    const bet = interaction.options.getInteger("amount");
+  // ================= PRODhan FIX =================
+  if (interaction.isChatInputCommand() && interaction.commandName === "prodhan") {
+    const images = fs.existsSync(imageFolder)
+      ? fs.readdirSync(imageFolder).filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f))
+      : [];
+
+    if (!images.length)
+      return interaction.reply("❌ No images found in folder");
+
+    const file = images[Math.floor(Math.random() * images.length)];
+
+    return interaction.reply({
+      content: "🎰 Roulette",
+      files: [path.join(imageFolder, file)],
+    });
+  }
+
+  // ================= MUSIC FIX =================
+  if (interaction.isChatInputCommand() && interaction.commandName === "play") {
+    const query = interaction.options.getString("song");
+    const vc = interaction.member.voice.channel;
+
+    if (!vc) return interaction.reply("❌ Join VC first");
+
+    await interaction.reply(`🔍 Searching **${query}**`);
+
+    try {
+      let player = kazagumo.players.get(interaction.guild.id);
+
+      if (!player) {
+        player = await kazagumo.createPlayer({
+          guildId: interaction.guild.id,
+          textId: interaction.channel.id,
+          voiceId: vc.id,
+          deaf: true,
+        });
+      }
+
+      const res = await kazagumo.search(query, { requester: interaction.user });
+
+      if (!res?.tracks?.length)
+        return interaction.followUp("❌ No songs found");
+
+      const track = res.tracks[0];
+
+      player.queue.add(track);
+
+      if (!player.playing) await player.play();
+
+      return interaction.followUp(`🎵 Now playing **${track.title}**`);
+    } catch (err) {
+      console.log(err);
+      return interaction.followUp("❌ Music error (Lavalink issue)");
+    }
+  }
+
+  // ================= BLACKJACK (HIT / STAND FIX) =================
+  if (interaction.isChatInputCommand() && interaction.commandName === "blackjack") {
+    const bet = interaction.options.getInteger("bet");
 
     if (u.wallet < bet) return interaction.reply("❌ Not enough money");
 
-    let player = draw() + draw();
-    let dealer = draw() + draw();
+    const playerHand = [drawCard(), drawCard()];
+    const dealerHand = [drawCard(), drawCard()];
 
-    while (player < 16) player += draw();
-    while (dealer < 17) dealer += draw();
+    const game = {
+      bet,
+      playerHand,
+      dealerHand,
+    };
 
-    let result;
+    blackjackGames.set(interaction.user.id, game);
 
-    if (player > 21) result = "lose";
-    else if (dealer > 21 || player > dealer) result = "win";
-    else if (player === dealer) result = "tie";
-    else result = "lose";
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("hit")
+        .setLabel("🟢 HIT")
+        .setStyle(ButtonStyle.Success),
 
-    if (result === "win") u.wallet += bet;
-    if (result === "lose") u.wallet -= bet;
-
-    await saveUser(interaction.user.id, u);
-
-    return interaction.reply(
-      `🃏 You: ${player} | Dealer: ${dealer}\nResult: **${result.toUpperCase()}**`
+      new ButtonBuilder()
+        .setCustomId("stand")
+        .setLabel("🛑 STAND")
+        .setStyle(ButtonStyle.Danger)
     );
+
+    return interaction.reply({
+      content:
+        `🃏 Your hand: ${calcHand(playerHand)}\n` +
+        `🎩 Dealer shows: ${dealerHand[0]}`,
+      components: [row],
+    });
   }
 
-  // ---------------- ALL OLD COMMANDS (UNCHANGED CORE) ----------------
+  // ================= BLACKJACK BUTTONS =================
+  if (interaction.isButton()) {
+    const game = blackjackGames.get(interaction.user.id);
+    if (!game) return interaction.reply({ content: "❌ No game", ephemeral: true });
 
-  if (interaction.commandName === "balance")
-    return interaction.reply(`💰 Wallet: ${u.wallet}`);
+    const hand = game.playerHand;
+    const dealer = game.dealerHand;
 
-  if (interaction.commandName === "daily") {
-    if (now - u.lastDaily < cooldowns.daily)
-      return interaction.reply("⏳ cooldown");
+    if (interaction.customId === "hit") {
+      hand.push(drawCard());
 
-    u.wallet += 1000;
-    u.lastDaily = now;
-    await saveUser(interaction.user.id, u);
-    return interaction.reply("💸 +1000");
+      const total = calcHand(hand);
+
+      if (total > 21) {
+        blackjackGames.delete(interaction.user.id);
+        u.wallet -= game.bet;
+        await saveUser(interaction.user.id, u);
+
+        return interaction.update({
+          content: `💥 BUST! You: ${total} | Dealer: ${calcHand(dealer)}\n❌ You lost ${game.bet}`,
+          components: [],
+        });
+      }
+
+      return interaction.update({
+        content:
+          `🃏 Your hand: ${total}\n🎩 Dealer shows: ${dealer[0]}`,
+        components: interaction.message.components,
+      });
+    }
+
+    if (interaction.customId === "stand") {
+      while (calcHand(dealer) < 17) dealer.push(drawCard());
+
+      const p = calcHand(hand);
+      const d = calcHand(dealer);
+
+      blackjackGames.delete(interaction.user.id);
+
+      let result = "lose";
+
+      if (p > 21) result = "lose";
+      else if (d > 21 || p > d) result = "win";
+      else if (p === d) result = "tie";
+
+      if (result === "win") u.wallet += game.bet;
+      if (result === "lose") u.wallet -= game.bet;
+
+      await saveUser(interaction.user.id, u);
+
+      return interaction.update({
+        content: `🃏 You: ${p} | Dealer: ${d}\n🏁 Result: ${result.toUpperCase()}`,
+        components: [],
+      });
+    }
   }
 
-  if (interaction.commandName === "beg") {
-    const amt = Math.floor(Math.random() * 200);
-    u.wallet += amt;
-    await saveUser(interaction.user.id, u);
-    return interaction.reply(`🥺 +${amt}`);
-  }
+  // ================= ECONOMY =================
+  if (interaction.isChatInputCommand()) {
+    if (interaction.commandName === "balance")
+      return interaction.reply(`💰 ${u.wallet}`);
 
-  if (interaction.commandName === "work") {
-    const amt = Math.floor(Math.random() * 500) + 300;
-    u.wallet += amt;
-    await saveUser(interaction.user.id, u);
-    return interaction.reply(`💼 +${amt}`);
-  }
+    if (interaction.commandName === "daily") {
+      u.wallet += 1000;
+      await saveUser(interaction.user.id, u);
+      return interaction.reply("💸 +1000");
+    }
 
-  if (interaction.commandName === "transfer") {
-    const target = interaction.options.getUser("user");
-    const amount = interaction.options.getInteger("amount");
+    if (interaction.commandName === "beg") {
+      const a = Math.floor(Math.random() * 200);
+      u.wallet += a;
+      await saveUser(interaction.user.id, u);
+      return interaction.reply(`🥺 +${a}`);
+    }
 
-    if (u.wallet < amount) return interaction.reply("❌ not enough money");
+    if (interaction.commandName === "work") {
+      const a = Math.floor(Math.random() * 500) + 300;
+      u.wallet += a;
+      await saveUser(interaction.user.id, u);
+      return interaction.reply(`💼 +${a}`);
+    }
 
-    const t = await getUser(target.id);
+    if (interaction.commandName === "transfer") {
+      const t = interaction.options.getUser("user");
+      const a = interaction.options.getInteger("amount");
 
-    u.wallet -= amount;
-    t.wallet += amount;
+      if (u.wallet < a) return interaction.reply("❌ not enough money");
 
-    await saveUser(interaction.user.id, u);
-    await saveUser(target.id, t);
+      const target = await getUser(t.id);
 
-    return interaction.reply(`💸 sent ${amount} to <@${target.id}>`);
-  }
+      u.wallet -= a;
+      target.wallet += a;
 
-  if (interaction.commandName === "leaderboard") {
-    const all = await db.all();
+      await saveUser(interaction.user.id, u);
+      await saveUser(t.id, target);
 
-    const users = all
-      .filter(x => x.id.startsWith("user_"))
-      .map(x => ({
-        id: x.id.replace("user_", ""),
-        total: x.value.wallet || 0,
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
+      return interaction.reply(`💸 sent ${a} to <@${t.id}>`);
+    }
 
-    return interaction.reply(
-      "🏆 Top:\n" +
-      users.map((u, i) => `${i + 1}. <@${u.id}> - ${u.total}`).join("\n")
-    );
+    if (interaction.commandName === "leaderboard") {
+      const all = await db.all();
+
+      const users = all
+        .filter(x => x.id.startsWith("user_"))
+        .map(x => ({
+          id: x.id.replace("user_", ""),
+          total: x.value.wallet || 0,
+        }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10);
+
+      return interaction.reply(
+        "🏆 Top:\n" +
+        users.map((u, i) => `${i + 1}. <@${u.id}> - ${u.total}`).join("\n")
+      );
+    }
   }
 });
 
