@@ -92,7 +92,7 @@ const cooldowns = {
   beg: 15000,
 };
 
-// steal cooldown map
+// ---------------- STEAL COOLDOWN ----------------
 const stealCooldown = new Map();
 
 // ---------------- VC ----------------
@@ -119,7 +119,7 @@ setInterval(forceRejoinVC, 15000);
 client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
-  // ✅ STATUS FIX
+  // ✅ BOT STATUS FIX
   client.user.setPresence({
     activities: [{ name: "beating prodhan", type: 0 }],
     status: "online",
@@ -144,19 +144,15 @@ client.once(Events.ClientReady, async () => {
     new SlashCommandBuilder().setName("beg").setDescription("🥺 Beg"),
     new SlashCommandBuilder().setName("work").setDescription("💼 Work"),
 
-    // transfer FIXED (was causing validation crash before)
+    // TRANSFER
     new SlashCommandBuilder()
       .setName("transfer")
       .setDescription("💸 Transfer money")
       .addUserOption(o =>
-        o.setName("user")
-          .setDescription("Target user")
-          .setRequired(true)
+        o.setName("user").setDescription("Target").setRequired(true)
       )
       .addIntegerOption(o =>
-        o.setName("amount")
-          .setDescription("Amount")
-          .setRequired(true)
+        o.setName("amount").setDescription("Amount").setRequired(true)
       ),
 
     new SlashCommandBuilder()
@@ -179,9 +175,7 @@ client.once(Events.ClientReady, async () => {
       .setName("steal")
       .setDescription("🕵️ Steal from someone")
       .addUserOption(o =>
-        o.setName("user")
-          .setDescription("Target user")
-          .setRequired(true)
+        o.setName("user").setDescription("Target").setRequired(true)
       ),
 
     new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
@@ -190,7 +184,10 @@ client.once(Events.ClientReady, async () => {
   await new REST({ version: "10" })
     .setToken(process.env.TOKEN)
     .put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      Routes.applicationGuildCommands(
+        process.env.CLIENT_ID,
+        process.env.GUILD_ID
+      ),
       { body: commands }
     );
 
@@ -204,7 +201,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   const u = await getUser(interaction.user.id);
   const now = Date.now();
 
-  // ---------------- PLAY (FIXED NOT STUCK) ----------------
+  // ---------------- PLAY (FIXED NO STUCK) ----------------
   if (interaction.commandName === "play") {
     const query = interaction.options.getString("song");
     const vc = interaction.member.voice.channel;
@@ -243,7 +240,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
   }
 
-  // ---------------- OTHER MUSIC ----------------
   if (interaction.commandName === "skip") {
     const player = kazagumo.players.get(interaction.guild.id);
     if (!player) return interaction.reply("❌ No music");
@@ -320,12 +316,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`💸 sent ${amount} to <@${target.id}>`);
   }
 
-  // ---------------- STEAL (5 min / 1 min cooldown FIXED) ----------------
+  // ---------------- STEAL ----------------
   if (interaction.commandName === "steal") {
     const target = interaction.options.getUser("user");
     const targetData = await getUser(target.id);
 
-    if (target.bot) return interaction.reply("❌ bots cannot be stolen from");
+    if (target.bot) return interaction.reply("❌ bots cannot be stolen");
     if (targetData.wallet <= 0) return interaction.reply("❌ empty wallet");
 
     const thiefId = interaction.user.id;
@@ -335,7 +331,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return interaction.reply("⏳ steal cooldown active");
     }
 
-    await interaction.reply(`🕵️ Attempting steal from <@${target.id}>`);
+    await interaction.reply(`🕵️ Stealing from <@${target.id}>...`);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -357,35 +353,28 @@ client.on(Events.InteractionCreate, async (interaction) => {
     collector.on("collect", async (btn) => {
       if (btn.user.id === target.id) {
         defended = true;
-
-        // 5 MIN COOLDOWN if defended
         stealCooldown.set(thiefId, Date.now() + 5 * 60 * 1000);
-
         await btn.reply({ content: "🛡️ SAFE!", ephemeral: true });
       }
     });
 
     collector.on("end", async () => {
       if (defended) {
-        await interaction.followUp("🛡️ Target defended. Thief got 5 min cooldown.");
+        await interaction.followUp("🛡️ Target defended.");
         return;
       }
 
-      const amount =
-        Math.floor(targetData.wallet * (Math.random() * 0.5 + 0.1));
+      const amount = Math.floor(targetData.wallet * (Math.random() * 0.5 + 0.1));
 
       targetData.wallet -= amount;
       u.wallet += amount;
 
-      // 1 MIN COOLDOWN if success
       stealCooldown.set(thiefId, Date.now() + 60 * 1000);
 
       await saveUser(target.id, targetData);
       await saveUser(thiefId, u);
 
-      await interaction.followUp(
-        `💰 You stole ${amount} coins from <@${target.id}>`
-      );
+      await interaction.followUp(`💰 You stole ${amount} coins from <@${target.id}>`);
     });
   }
 
