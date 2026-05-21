@@ -64,7 +64,7 @@ const kazagumo = new Kazagumo(
 // ---------------- IMAGE ----------------
 const imageFolder = path.join(__dirname, "images");
 
-// ---------------- ECONOMY (NO BANK) ----------------
+// ---------------- ECONOMY (PERSISTENT SAFE WALLET) ----------------
 async function getUser(id) {
   let user = await db.get(`user_${id}`);
 
@@ -90,7 +90,12 @@ const cooldowns = {
   daily: 86400000,
   work: 30000,
   beg: 15000,
+  stealSuccess: 60000,      // 1 min
+  stealDefended: 300000,    // 5 min
 };
+
+// ---------------- STEAL SYSTEM ----------------
+const stealCooldownMap = new Map();
 
 // ---------------- VC SYSTEM ----------------
 function forceRejoinVC() {
@@ -149,14 +154,11 @@ client.once(Events.ClientReady, async () => {
         o.setName("amount").setDescription("Bet").setRequired(true)
       ),
 
-    new SlashCommandBuilder()
-      .setName("rob")
-      .setDescription("🚔 Rob"),
+    new SlashCommandBuilder().setName("rob").setDescription("🚔 Rob"),
 
-    // NEW STEAL COMMAND
     new SlashCommandBuilder()
       .setName("steal")
-      .setDescription("💰 Try stealing from someone")
+      .setDescription("🕵️ Steal from someone")
       .addUserOption(o =>
         o.setName("user")
           .setDescription("Target user")
@@ -179,14 +181,12 @@ client.once(Events.ClientReady, async () => {
   console.log("✅ Commands registered");
 });
 
-// ---------------- STEAL SYSTEM STORAGE ----------------
-const stealMap = new Map();
-
-// ---------------- COMMANDS ----------------
+// ---------------- COMMAND HANDLER ----------------
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const u = await getUser(interaction.user.id);
+  const now = Date.now();
 
   // ---------------- PRODHAN ----------------
   if (interaction.commandName === "prodhan") {
@@ -269,8 +269,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   // ---------------- ECONOMY ----------------
-  const now = Date.now();
-
   if (interaction.commandName === "daily") {
     if (now - u.lastDaily < cooldowns.daily)
       return interaction.reply("⏳ cooldown");
@@ -357,58 +355,70 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`💰 +${gain}`);
   }
 
-  // ---------------- STEAL COMMAND ----------------
+  // ---------------- STEAL SYSTEM (5s DEFEND + COOLDOWNS) ----------------
   if (interaction.commandName === "steal") {
     const target = interaction.options.getUser("user");
-    if (target.bot) return interaction.reply("❌ bots have no money");
+    if (target.bot) return interaction.reply("❌ bots can't be stolen from");
+
+    const cooldown = stealCooldownMap.get(interaction.user.id);
+    if (cooldown && now < cooldown) {
+      return interaction.reply("⏳ steal cooldown active");
+    }
 
     const targetData = await getUser(target.id);
-
-    if (targetData.wallet < 100)
-      return interaction.reply("❌ target too poor");
-
-    await interaction.reply(`🕵️ Trying to steal from <@${target.id}>...`);
+    if (targetData.wallet <= 0)
+      return interaction.reply("❌ target has no money");
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("defend")
-        .setLabel("❌ Defend")
+        .setLabel("🛡️ Defend (5s)")
         .setStyle(ButtonStyle.Danger)
     );
 
-    const msg = await interaction.followUp({
-      content: `⚠️ <@${target.id}> someone is stealing your money!`,
+    const msg = await interaction.reply({
+      content: `⚠️ <@${target.id}> is being robbed! You have 5 seconds to defend!`,
       components: [row],
+      fetchReply: true,
     });
 
-    stealMap.set(target.id, true);
+    let defended = false;
 
     const collector = msg.createMessageComponentCollector({
       time: 5000,
     });
 
-    let defended = false;
-
     collector.on("collect", async (btn) => {
       if (btn.user.id === target.id) {
         defended = true;
-        stealMap.delete(target.id);
-        await btn.reply({ content: "🛡️ You defended successfully!", ephemeral: true });
+
+        stealCooldownMap.set(interaction.user.id, now + cooldowns.stealDefended);
+
+        await btn.reply({
+          content: "🛡️ You defended successfully! You're safe.",
+          ephemeral: true,
+        });
       }
     });
 
     collector.on("end", async () => {
       if (defended) return;
 
-      const thiefGain = Math.floor(Math.random() * targetData.wallet);
+      const stealAmount = Math.floor(
+        targetData.wallet * (Math.random() * 0.5 + 0.1)
+      );
 
-      targetData.wallet -= thiefGain;
-      u.wallet += thiefGain;
+      targetData.wallet -= stealAmount;
+      u.wallet += stealAmount;
+
+      stealCooldownMap.set(interaction.user.id, now + cooldowns.stealSuccess);
 
       await saveUser(target.id, targetData);
       await saveUser(interaction.user.id, u);
 
-      interaction.followUp(`💰 Steal success! You got ${thiefGain}`);
+      interaction.followUp(
+        `💰 Steal success! You got ${stealAmount} coins from <@${target.id}>`
+      );
     });
   }
 
