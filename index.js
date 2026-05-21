@@ -48,19 +48,15 @@ const nodes = [
   },
 ];
 
-// ---------------- MUSIC FIX (IMPORTANT) ----------------
+// ---------------- MUSIC ----------------
 const kazagumo = new Kazagumo(
   {
     defaultSearchEngine: "youtube",
-
     send: (guildId, payload) => {
       try {
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return;
-
-        // FIX FOR RAILWAY / NON-SHARD ENVIRONMENTS
-        guild.shard?.send(payload) ||
-          client.ws?.shards?.first()?.send(payload);
+        guild.shard?.send(payload);
       } catch (e) {
         console.log("Lavalink send error:", e);
       }
@@ -78,7 +74,7 @@ async function getUser(id) {
   let user = await db.get(`user_${id}`);
 
   if (!user || typeof user !== "object") {
-    user = { wallet: 0, lastDaily: 0, lastWork: 0, lastBeg: 0 };
+    user = { wallet: 0 };
   }
 
   await db.set(`user_${id}`, user);
@@ -89,36 +85,6 @@ async function saveUser(id, data) {
   await db.set(`user_${id}`, data);
 }
 
-// ---------------- COOLDOWNS ----------------
-const cooldowns = {
-  daily: 86400000,
-  work: 30000,
-  beg: 15000,
-};
-
-const stealCooldown = new Map();
-
-// ---------------- VC (ALWAYS STAY) ----------------
-function forceRejoinVC() {
-  const guild = client.guilds.cache.get(process.env.GUILD_ID);
-  if (!guild) return;
-
-  const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-  if (!channel) return;
-
-  // NEVER DISCONNECT LOGIC: only join if missing
-  if (getVoiceConnection(guild.id)) return;
-
-  joinVoiceChannel({
-    channelId: channel.id,
-    guildId: guild.id,
-    adapterCreator: guild.voiceAdapterCreator,
-    selfDeaf: true,
-  });
-}
-
-setInterval(forceRejoinVC, 15000);
-
 // ---------------- BLACKJACK ----------------
 const blackjackGames = new Map();
 
@@ -126,7 +92,7 @@ function drawCard() {
   return Math.floor(Math.random() * 11) + 1;
 }
 
-function calcHand(hand) {
+function calc(hand) {
   return hand.reduce((a, b) => a + b, 0);
 }
 
@@ -154,21 +120,10 @@ client.once(Events.ClientReady, async () => {
     new SlashCommandBuilder().setName("queue").setDescription("📜 Queue"),
 
     new SlashCommandBuilder().setName("balance").setDescription("💰 Balance"),
-    new SlashCommandBuilder().setName("daily").setDescription("🎁 Daily"),
-    new SlashCommandBuilder().setName("beg").setDescription("🥺 Beg"),
-    new SlashCommandBuilder().setName("work").setDescription("💼 Work"),
 
     new SlashCommandBuilder()
-      .setName("transfer")
-      .setDescription("💸 Transfer")
-      .addUserOption(o =>
-        o.setName("user").setDescription("Target").setRequired(true)
-      )
-      .addIntegerOption(o =>
-        o.setName("amount").setDescription("Amount").setRequired(true)
-      ),
-
-    new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
+      .setName("slots")
+      .setDescription("🎰 Slots game"),
 
     new SlashCommandBuilder()
       .setName("blackjack")
@@ -194,14 +149,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const u = await getUser(interaction.user.id);
 
-  // ---------------- PRODhan FIX ----------------
+  // ---------------- PRODHAN ----------------
   if (interaction.isChatInputCommand() && interaction.commandName === "prodhan") {
     const images = fs.existsSync(imageFolder)
       ? fs.readdirSync(imageFolder).filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f))
       : [];
 
-    if (!images.length)
-      return interaction.reply("❌ No images found");
+    if (!images.length) return interaction.reply("❌ No images found");
 
     const file = images[Math.floor(Math.random() * images.length)];
 
@@ -211,7 +165,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     });
   }
 
-  // ---------------- MUSIC FIX (REAL ERROR NOW SHOWN) ----------------
+  // ---------------- PLAY ----------------
   if (interaction.isChatInputCommand() && interaction.commandName === "play") {
     const query = interaction.options.getString("song");
     const vc = interaction.member.voice.channel;
@@ -240,49 +194,37 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const track = res.tracks[0];
 
       player.queue.add(track);
-
       if (!player.playing) await player.play();
 
       return interaction.followUp(`🎵 Now playing **${track.title}**`);
-    } catch (err) {
-      console.log("PLAY ERROR:", err);
-      return interaction.followUp("❌ Lavalink/Music error (check Railway logs)");
+    } catch (e) {
+      console.log(e);
+      return interaction.followUp("❌ Music error (check Lavalink)");
     }
   }
 
-  // ---------------- SKIP (FIXED - NO VC LEAVE) ----------------
+  // ---------------- SKIP (NO VC LEAVE) ----------------
   if (interaction.isChatInputCommand() && interaction.commandName === "skip") {
     const player = kazagumo.players.get(interaction.guild.id);
-
-    if (!player) return interaction.reply("❌ No music playing");
+    if (!player) return interaction.reply("❌ No music");
 
     try {
-      await player.skip?.();
-      return interaction.reply("⏭️ Skipped");
-    } catch (e) {
-      console.log(e);
+      await player.skip();
+      return interaction.reply("⏭️ Skipped (stayed in VC)");
+    } catch {
       return interaction.reply("❌ Skip failed");
     }
   }
 
-  // ---------------- STOP (FIXED - NEVER LEAVES VC) ----------------
+  // ---------------- STOP (NO VC LEAVE EVER) ----------------
   if (interaction.isChatInputCommand() && interaction.commandName === "stop") {
     const player = kazagumo.players.get(interaction.guild.id);
+    if (!player) return interaction.reply("❌ No music");
 
-    if (!player) return interaction.reply("❌ No music playing");
+    player.queue.clear();
+    await player.skip();
 
-    try {
-      // IMPORTANT: DO NOT destroy player (prevents VC leave)
-      player.queue.clear();
-
-      // just skip current track safely
-      await player.skip?.();
-
-      return interaction.reply("🛑 Stopped (stayed in VC)");
-    } catch (e) {
-      console.log(e);
-      return interaction.reply("❌ Stop failed");
-    }
+    return interaction.reply("🛑 Stopped (still in VC)");
   }
 
   // ---------------- QUEUE ----------------
@@ -301,64 +243,97 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(msg);
   }
 
-  // ---------------- ECONOMY ----------------
-  if (interaction.commandName === "balance")
+  // ---------------- BALANCE ----------------
+  if (interaction.commandName === "balance") {
     return interaction.reply(`💰 ${u.wallet}`);
-
-  if (interaction.commandName === "daily") {
-    u.wallet += 1000;
-    await saveUser(interaction.user.id, u);
-    return interaction.reply("💸 +1000");
   }
 
-  if (interaction.commandName === "beg") {
-    const a = Math.floor(Math.random() * 200);
-    u.wallet += a;
-    await saveUser(interaction.user.id, u);
-    return interaction.reply(`🥺 +${a}`);
-  }
+  // ---------------- SLOTS (FIXED) ----------------
+  if (interaction.commandName === "slots") {
+    const symbols = ["🍒", "🍋", "🍊", "💎"];
+    const roll = () => symbols[Math.floor(Math.random() * symbols.length)];
 
-  if (interaction.commandName === "work") {
-    const a = Math.floor(Math.random() * 500) + 300;
-    u.wallet += a;
-    await saveUser(interaction.user.id, u);
-    return interaction.reply(`💼 +${a}`);
-  }
+    const a = roll(), b = roll(), c = roll();
 
-  if (interaction.commandName === "transfer") {
-    const t = interaction.options.getUser("user");
-    const a = interaction.options.getInteger("amount");
+    let win = a === b && b === c;
 
-    if (u.wallet < a) return interaction.reply("❌ not enough money");
-
-    const target = await getUser(t.id);
-
-    u.wallet -= a;
-    target.wallet += a;
+    if (win) u.wallet += 500;
+    else u.wallet -= 100;
 
     await saveUser(interaction.user.id, u);
-    await saveUser(t.id, target);
 
-    return interaction.reply(`💸 sent ${a} to <@${t.id}>`);
+    return interaction.reply(`${a} | ${b} | ${c}\n${win ? "🎉 WIN +500" : "❌ LOSE -100"}`);
   }
 
-  if (interaction.commandName === "leaderboard") {
-    const all = await db.all();
+  // ---------------- BLACKJACK (FIXED) ----------------
+  if (interaction.commandName === "blackjack") {
+    const bet = interaction.options.getInteger("bet");
 
-    const users = all
-      .filter(x => x.id.startsWith("user_"))
-      .map(x => ({
-        id: x.id.replace("user_", ""),
-        total: x.value.wallet || 0,
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
+    if (u.wallet < bet) return interaction.reply("❌ Not enough money");
 
-    return interaction.reply(
-      "🏆 Top:\n" +
-      users.map((u, i) => `${i + 1}. <@${u.id}> - ${u.total}`).join("\n")
+    const player = [drawCard(), drawCard()];
+    const dealer = [drawCard(), drawCard()];
+
+    blackjackGames.set(interaction.user.id, { bet, player, dealer });
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("hit").setLabel("HIT").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("stand").setLabel("STAND").setStyle(ButtonStyle.Danger)
     );
-  }
-});
 
-client.login(process.env.TOKEN);
+    return interaction.reply({
+      content: `🃏 Your: ${calc(player)} | Dealer: ${dealer[0]}`,
+      components: [row],
+    });
+  }
+
+  // ---------------- BLACKJACK BUTTONS ----------------
+  if (interaction.isButton()) {
+    const game = blackjackGames.get(interaction.user.id);
+    if (!game) return interaction.reply({ content: "❌ No game", ephemeral: true });
+
+    const p = game.player;
+    const d = game.dealer;
+
+    if (interaction.customId === "hit") {
+      p.push(drawCard());
+
+      if (calc(p) > 21) {
+        blackjackGames.delete(interaction.user.id);
+        u.wallet -= game.bet;
+        await saveUser(interaction.user.id, u);
+
+        return interaction.update({
+          content: `💥 Bust! You lost ${game.bet}`,
+          components: [],
+        });
+      }
+
+      return interaction.update({
+        content: `🃏 Your: ${calc(p)} | Dealer: ${d[0]}`,
+        components: interaction.message.components,
+      });
+    }
+
+    if (interaction.customId === "stand") {
+      while (calc(d) < 17) d.push(drawCard());
+
+      const ps = calc(p);
+      const ds = calc(d);
+
+      blackjackGames.delete(interaction.user.id);
+
+      if (ds > 21 || ps > ds) u.wallet += game.bet;
+      else if (ps < ds) u.wallet -= game.bet;
+
+      await saveUser(interaction.user.id, u);
+
+      return interaction.update({
+        content: `🃏 You: ${ps} | Dealer: ${ds}`,
+        components: [],
+      });
+    }
+  }
+
+  client.login(process.env.TOKEN);
+});
