@@ -48,13 +48,22 @@ const nodes = [
   },
 ];
 
-// ---------------- MUSIC ----------------
+// ---------------- MUSIC FIX (IMPORTANT) ----------------
 const kazagumo = new Kazagumo(
   {
     defaultSearchEngine: "youtube",
+
     send: (guildId, payload) => {
-      const guild = client.guilds.cache.get(guildId);
-      if (guild) guild.shard.send(payload);
+      try {
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) return;
+
+        // FIX FOR RAILWAY / NON-SHARD ENVIRONMENTS
+        guild.shard?.send(payload) ||
+          client.ws?.shards?.first()?.send(payload);
+      } catch (e) {
+        console.log("Lavalink send error:", e);
+      }
     },
   },
   new Connectors.DiscordJS(client),
@@ -89,7 +98,7 @@ const cooldowns = {
 
 const stealCooldown = new Map();
 
-// ---------------- VC (NEVER LEAVE FIX) ----------------
+// ---------------- VC (ALWAYS STAY) ----------------
 function forceRejoinVC() {
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
   if (!guild) return;
@@ -97,22 +106,20 @@ function forceRejoinVC() {
   const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
   if (!channel) return;
 
-  const connection = getVoiceConnection(guild.id);
+  // NEVER DISCONNECT LOGIC: only join if missing
+  if (getVoiceConnection(guild.id)) return;
 
-  // ALWAYS stay connected
-  if (!connection) {
-    joinVoiceChannel({
-      channelId: channel.id,
-      guildId: guild.id,
-      adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf: true,
-    });
-  }
+  joinVoiceChannel({
+    channelId: channel.id,
+    guildId: guild.id,
+    adapterCreator: guild.voiceAdapterCreator,
+    selfDeaf: true,
+  });
 }
 
 setInterval(forceRejoinVC, 15000);
 
-// ---------------- BLACKJACK SYSTEM ----------------
+// ---------------- BLACKJACK ----------------
 const blackjackGames = new Map();
 
 function drawCard() {
@@ -187,7 +194,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const u = await getUser(interaction.user.id);
 
-  // ================= PRODHAN SAFE =================
+  // ---------------- PRODhan FIX ----------------
   if (interaction.isChatInputCommand() && interaction.commandName === "prodhan") {
     const images = fs.existsSync(imageFolder)
       ? fs.readdirSync(imageFolder).filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f))
@@ -204,7 +211,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     });
   }
 
-  // ================= PLAY FIX =================
+  // ---------------- MUSIC FIX (REAL ERROR NOW SHOWN) ----------------
   if (interaction.isChatInputCommand() && interaction.commandName === "play") {
     const query = interaction.options.getString("song");
     const vc = interaction.member.voice.channel;
@@ -238,46 +245,49 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       return interaction.followUp(`🎵 Now playing **${track.title}**`);
     } catch (err) {
-      console.log(err);
-      return interaction.followUp("❌ Music error");
+      console.log("PLAY ERROR:", err);
+      return interaction.followUp("❌ Lavalink/Music error (check Railway logs)");
     }
   }
 
-  // ================= SKIP FIX =================
+  // ---------------- SKIP (FIXED - NO VC LEAVE) ----------------
   if (interaction.isChatInputCommand() && interaction.commandName === "skip") {
     const player = kazagumo.players.get(interaction.guild.id);
 
-    if (!player) return interaction.reply("❌ No music");
+    if (!player) return interaction.reply("❌ No music playing");
 
     try {
-      await player.skip();
+      await player.skip?.();
       return interaction.reply("⏭️ Skipped");
     } catch (e) {
+      console.log(e);
       return interaction.reply("❌ Skip failed");
     }
   }
 
-  // ================= STOP FIX (NO VC LEAVE) =================
+  // ---------------- STOP (FIXED - NEVER LEAVES VC) ----------------
   if (interaction.isChatInputCommand() && interaction.commandName === "stop") {
     const player = kazagumo.players.get(interaction.guild.id);
 
-    if (!player) return interaction.reply("❌ No music");
+    if (!player) return interaction.reply("❌ No music playing");
 
-    player.queue.clear();
+    try {
+      // IMPORTANT: DO NOT destroy player (prevents VC leave)
+      player.queue.clear();
 
-    if (player.playing) {
-      try {
-        await player.skip();
-      } catch {}
+      // just skip current track safely
+      await player.skip?.();
+
+      return interaction.reply("🛑 Stopped (stayed in VC)");
+    } catch (e) {
+      console.log(e);
+      return interaction.reply("❌ Stop failed");
     }
-
-    return interaction.reply("🛑 Stopped (bot stays in VC)");
   }
 
-  // ================= QUEUE =================
-  if (interaction.isChatInputCommand() && interaction.commandName === "queue") {
+  // ---------------- QUEUE ----------------
+  if (interaction.commandName === "queue") {
     const player = kazagumo.players.get(interaction.guild.id);
-
     if (!player) return interaction.reply("❌ No music");
 
     const current = player.queue.current;
@@ -291,65 +301,63 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(msg);
   }
 
-  // ================= ECONOMY =================
-  if (interaction.isChatInputCommand()) {
-    if (interaction.commandName === "balance")
-      return interaction.reply(`💰 ${u.wallet}`);
+  // ---------------- ECONOMY ----------------
+  if (interaction.commandName === "balance")
+    return interaction.reply(`💰 ${u.wallet}`);
 
-    if (interaction.commandName === "daily") {
-      u.wallet += 1000;
-      await saveUser(interaction.user.id, u);
-      return interaction.reply("💸 +1000");
-    }
+  if (interaction.commandName === "daily") {
+    u.wallet += 1000;
+    await saveUser(interaction.user.id, u);
+    return interaction.reply("💸 +1000");
+  }
 
-    if (interaction.commandName === "beg") {
-      const a = Math.floor(Math.random() * 200);
-      u.wallet += a;
-      await saveUser(interaction.user.id, u);
-      return interaction.reply(`🥺 +${a}`);
-    }
+  if (interaction.commandName === "beg") {
+    const a = Math.floor(Math.random() * 200);
+    u.wallet += a;
+    await saveUser(interaction.user.id, u);
+    return interaction.reply(`🥺 +${a}`);
+  }
 
-    if (interaction.commandName === "work") {
-      const a = Math.floor(Math.random() * 500) + 300;
-      u.wallet += a;
-      await saveUser(interaction.user.id, u);
-      return interaction.reply(`💼 +${a}`);
-    }
+  if (interaction.commandName === "work") {
+    const a = Math.floor(Math.random() * 500) + 300;
+    u.wallet += a;
+    await saveUser(interaction.user.id, u);
+    return interaction.reply(`💼 +${a}`);
+  }
 
-    if (interaction.commandName === "transfer") {
-      const t = interaction.options.getUser("user");
-      const a = interaction.options.getInteger("amount");
+  if (interaction.commandName === "transfer") {
+    const t = interaction.options.getUser("user");
+    const a = interaction.options.getInteger("amount");
 
-      if (u.wallet < a) return interaction.reply("❌ not enough money");
+    if (u.wallet < a) return interaction.reply("❌ not enough money");
 
-      const target = await getUser(t.id);
+    const target = await getUser(t.id);
 
-      u.wallet -= a;
-      target.wallet += a;
+    u.wallet -= a;
+    target.wallet += a;
 
-      await saveUser(interaction.user.id, u);
-      await saveUser(t.id, target);
+    await saveUser(interaction.user.id, u);
+    await saveUser(t.id, target);
 
-      return interaction.reply(`💸 sent ${a} to <@${t.id}>`);
-    }
+    return interaction.reply(`💸 sent ${a} to <@${t.id}>`);
+  }
 
-    if (interaction.commandName === "leaderboard") {
-      const all = await db.all();
+  if (interaction.commandName === "leaderboard") {
+    const all = await db.all();
 
-      const users = all
-        .filter(x => x.id.startsWith("user_"))
-        .map(x => ({
-          id: x.id.replace("user_", ""),
-          total: x.value.wallet || 0,
-        }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 10);
+    const users = all
+      .filter(x => x.id.startsWith("user_"))
+      .map(x => ({
+        id: x.id.replace("user_", ""),
+        total: x.value.wallet || 0,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
 
-      return interaction.reply(
-        "🏆 Top:\n" +
-        users.map((u, i) => `${i + 1}. <@${u.id}> - ${u.total}`).join("\n")
-      );
-    }
+    return interaction.reply(
+      "🏆 Top:\n" +
+      users.map((u, i) => `${i + 1}. <@${u.id}> - ${u.total}`).join("\n")
+    );
   }
 });
 
