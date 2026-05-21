@@ -41,7 +41,7 @@ const nodes = [
   },
 ];
 
-// ---------------- KAZAGUMO ----------------
+// ---------------- MUSIC ----------------
 const kazagumo = new Kazagumo(
   {
     defaultSearchEngine: "youtube",
@@ -57,19 +57,12 @@ const kazagumo = new Kazagumo(
 // ---------------- IMAGE ----------------
 const imageFolder = path.join(__dirname, "images");
 
-// ---------------- ECONOMY DB (PERSISTENT FIX) ----------------
-// safe structure so updates NEVER delete balances
+// ---------------- ECONOMY ----------------
 async function getUser(id) {
   let user = await db.get(`user_${id}`);
 
   if (!user || typeof user !== "object") {
-    user = {
-      wallet: 0,
-      bank: 0,
-      lastDaily: 0,
-      lastWork: 0,
-      lastBeg: 0,
-    };
+    user = { wallet: 0, bank: 0 };
     await db.set(`user_${id}`, user);
   }
 
@@ -81,29 +74,6 @@ async function saveUser(id, data) {
 }
 
 const getTotal = (u) => u.wallet + u.bank;
-
-// ---------------- COOLDOWN SYSTEM ----------------
-const cooldowns = {
-  daily: 86400000, // 24h
-  work: 30000,     // 30s
-  beg: 15000,      // 15s
-  coinflip: 5000,
-  slots: 5000,
-  rob: 10000,
-};
-
-function checkCooldown(user, key, duration) {
-  const now = Date.now();
-  if (!user[key]) user[key] = 0;
-
-  if (now - user[key] < duration) {
-    const left = Math.ceil((duration - (now - user[key])) / 1000);
-    return left;
-  }
-
-  user[key] = now;
-  return 0;
-}
 
 // ---------------- VC SYSTEM ----------------
 function forceRejoinVC() {
@@ -131,54 +101,57 @@ client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   const commands = [
-    new SlashCommandBuilder().setName("prodhan").setDescription("🎰 roulette"),
+    new SlashCommandBuilder()
+      .setName("prodhan")
+      .setDescription("🎰 Send random image"),
 
     new SlashCommandBuilder()
       .setName("play")
       .setDescription("🎵 Play music")
       .addStringOption(o =>
         o.setName("song")
-          .setDescription("song")
+          .setDescription("Song name or URL")
           .setRequired(true)
       ),
 
-    new SlashCommandBuilder().setName("skip").setDescription("skip"),
-    new SlashCommandBuilder().setName("stop").setDescription("stop"),
-    new SlashCommandBuilder().setName("queue").setDescription("queue"),
+    new SlashCommandBuilder().setName("skip").setDescription("⏭️ Skip"),
+    new SlashCommandBuilder().setName("stop").setDescription("🛑 Stop"),
+    new SlashCommandBuilder().setName("queue").setDescription("📜 Queue"),
 
-    new SlashCommandBuilder().setName("balance").setDescription("balance"),
-    new SlashCommandBuilder().setName("daily").setDescription("daily"),
-    new SlashCommandBuilder().setName("beg").setDescription("beg"),
-    new SlashCommandBuilder().setName("work").setDescription("work"),
-
-    new SlashCommandBuilder()
-      .setName("deposit")
-      .setDescription("deposit")
-      .addIntegerOption(o => o.setName("amount").setDescription("amt").setRequired(true)),
-
-    new SlashCommandBuilder()
-      .setName("withdraw")
-      .setDescription("withdraw")
-      .addIntegerOption(o => o.setName("amount").setDescription("amt").setRequired(true)),
+    new SlashCommandBuilder().setName("balance").setDescription("💰 Balance"),
+    new SlashCommandBuilder().setName("daily").setDescription("🎁 Daily"),
+    new SlashCommandBuilder().setName("beg").setDescription("🥺 Beg"),
+    new SlashCommandBuilder().setName("work").setDescription("💼 Work"),
 
     new SlashCommandBuilder()
       .setName("coinflip")
-      .setDescription("coinflip")
-      .addIntegerOption(o => o.setName("amount").setDescription("amt").setRequired(true)),
+      .setDescription("🪙 Gamble")
+      .addIntegerOption(o =>
+        o.setName("amount")
+          .setDescription("Bet")
+          .setRequired(true)
+      ),
 
     new SlashCommandBuilder()
       .setName("slots")
-      .setDescription("slots")
-      .addIntegerOption(o => o.setName("amount").setDescription("amt").setRequired(true)),
+      .setDescription("🎰 Slots")
+      .addIntegerOption(o =>
+        o.setName("amount")
+          .setDescription("Bet")
+          .setRequired(true)
+      ),
 
-    new SlashCommandBuilder().setName("rob").setDescription("rob"),
-    new SlashCommandBuilder().setName("leaderboard").setDescription("top"),
+    new SlashCommandBuilder().setName("rob").setDescription("🚔 Rob"),
+    new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
   ].map(c => c.toJSON());
 
   const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
   await rest.put(
-    Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+    Routes.applicationGuildCommands(
+      process.env.CLIENT_ID,
+      process.env.GUILD_ID
+    ),
     { body: commands }
   );
 
@@ -191,46 +164,121 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const u = await getUser(interaction.user.id);
 
-  // ---------------- BALANCE ----------------
+  // ---------------- PRODHAN ----------------
+  if (interaction.commandName === "prodhan") {
+    const images = fs.readdirSync(imageFolder).filter(f =>
+      /\.(png|jpg|jpeg|webp)$/i.test(f)
+    );
+
+    if (!images.length)
+      return interaction.reply("❌ No images found.");
+
+    const file = images[Math.floor(Math.random() * images.length)];
+
+    return interaction.reply({
+      content: "🎰 Roulette!",
+      files: [path.join(imageFolder, file)],
+    });
+  }
+
+  // ---------------- MUSIC FIXED ----------------
+  if (interaction.commandName === "play") {
+    const query = interaction.options.getString("song");
+    const vc = interaction.member.voice.channel;
+
+    if (!vc) return interaction.reply("❌ Join VC first");
+
+    await interaction.reply(`🔍 Searching **${query}**`);
+
+    let player = kazagumo.players.get(interaction.guild.id);
+
+    if (!player) {
+      player = await kazagumo.createPlayer({
+        guildId: interaction.guild.id,
+        textId: interaction.channel.id,
+        voiceId: vc.id,
+        deaf: true,
+      });
+    }
+
+    const res = await kazagumo.search(query, { requester: interaction.user });
+
+    if (!res.tracks.length)
+      return interaction.followUp("❌ No songs found");
+
+    const track = res.tracks[0];
+
+    player.queue.add(track);
+
+    if (!player.playing) await player.play();
+
+    return interaction.followUp(`🎵 Now playing **${track.title}**`);
+  }
+
+  if (interaction.commandName === "skip") {
+    const player = kazagumo.players.get(interaction.guild.id);
+    if (!player) return interaction.reply("❌ No music");
+    player.skip();
+    return interaction.reply("⏭️ skipped");
+  }
+
+  if (interaction.commandName === "stop") {
+    const player = kazagumo.players.get(interaction.guild.id);
+    if (!player) return interaction.reply("❌ No music");
+    player.queue.clear();
+    player.skip();
+    return interaction.reply("🛑 stopped");
+  }
+
+  if (interaction.commandName === "queue") {
+    const player = kazagumo.players.get(interaction.guild.id);
+    if (!player) return interaction.reply("❌ No music");
+
+    const current = player.queue.current;
+    const q = player.queue;
+
+    let msg = current ? `🎵 Now: **${current.title}**\n\n` : "";
+
+    if (!q.size) return interaction.reply(msg + "📭 Empty");
+
+    msg += q.slice(0, 10).map((t, i) => `${i + 1}. ${t.title}`).join("\n");
+
+    return interaction.reply(msg);
+  }
+
+  // ---------------- ECONOMY ----------------
   if (interaction.commandName === "balance") {
     return interaction.reply(
       `💰 Wallet: ${u.wallet}\n🏦 Bank: ${u.bank}\n📊 Total: ${getTotal(u)}`
     );
   }
 
-  // ---------------- DAILY ----------------
   if (interaction.commandName === "daily") {
-    const cd = checkCooldown(u, "lastDaily", cooldowns.daily);
-    if (cd) return interaction.reply(`⏳ wait ${cd}s`);
+    const cd = 86400000;
+    if (Date.now() - (u.lastDaily || 0) < cd)
+      return interaction.reply("⏳ wait");
 
     u.wallet += 1000;
-    await saveUser(interaction.user.id, u);
+    u.lastDaily = Date.now();
 
+    await saveUser(interaction.user.id, u);
     return interaction.reply("💸 +1000");
   }
 
-  // ---------------- WORK ----------------
-  if (interaction.commandName === "work") {
-    const cd = checkCooldown(u, "lastWork", cooldowns.work);
-    if (cd) return interaction.reply(`⏳ wait ${cd}s`);
-
-    const amt = Math.floor(Math.random() * 500) + 300;
-    u.wallet += amt;
-
-    await saveUser(interaction.user.id, u);
-    return interaction.reply(`💼 +${amt}`);
-  }
-
-  // ---------------- BEG ----------------
   if (interaction.commandName === "beg") {
-    const cd = checkCooldown(u, "lastBeg", cooldowns.beg);
-    if (cd) return interaction.reply(`⏳ wait ${cd}s`);
-
     const amt = Math.floor(Math.random() * 200);
     u.wallet += amt;
 
     await saveUser(interaction.user.id, u);
     return interaction.reply(`🥺 +${amt}`);
+  }
+
+  if (interaction.commandName === "work") {
+    const amt = Math.floor(Math.random() * 500) + 300;
+    u.wallet += amt;
+
+    await saveUser(interaction.user.id, u);
+    return interaction.reply(`💼 +${amt}`);
   }
 
   // ---------------- GAMBLING ----------------
@@ -265,18 +313,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`${r.join(" ")} ${win ? "WIN" : "LOSE"}`);
   }
 
-  // ---------------- ROB ----------------
   if (interaction.commandName === "rob") {
-    const cd = checkCooldown(u, "lastRob", cooldowns.rob);
-    if (cd) return interaction.reply(`⏳ wait ${cd}s`);
-
     const success = Math.random() < 0.4;
 
     if (!success) {
       const fine = Math.floor(Math.random() * 200);
       u.wallet = Math.max(0, u.wallet - fine);
       await saveUser(interaction.user.id, u);
-      return interaction.reply(`🚔 caught -${fine}`);
+      return interaction.reply(`🚔 -${fine}`);
     }
 
     const gain = Math.floor(Math.random() * 500);
@@ -286,7 +330,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return interaction.reply(`💰 +${gain}`);
   }
 
-  // ---------------- LEADERBOARD ----------------
   if (interaction.commandName === "leaderboard") {
     const all = await db.all();
 
@@ -294,7 +337,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .filter(x => x.id.startsWith("user_"))
       .map(x => ({
         id: x.id.replace("user_", ""),
-        total: x.value?.wallet + x.value?.bank || 0,
+        total: x.value.wallet + x.value.bank,
       }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
