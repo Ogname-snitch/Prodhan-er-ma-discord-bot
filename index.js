@@ -89,7 +89,7 @@ const cooldowns = {
 
 const stealCooldown = new Map();
 
-// ---------------- VC ----------------
+// ---------------- VC (NEVER LEAVE FIX) ----------------
 function forceRejoinVC() {
   const guild = client.guilds.cache.get(process.env.GUILD_ID);
   if (!guild) return;
@@ -97,14 +97,17 @@ function forceRejoinVC() {
   const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
   if (!channel) return;
 
-  if (getVoiceConnection(guild.id)) return;
+  const connection = getVoiceConnection(guild.id);
 
-  joinVoiceChannel({
-    channelId: channel.id,
-    guildId: guild.id,
-    adapterCreator: guild.voiceAdapterCreator,
-    selfDeaf: true,
-  });
+  // ALWAYS stay connected
+  if (!connection) {
+    joinVoiceChannel({
+      channelId: channel.id,
+      guildId: guild.id,
+      adapterCreator: guild.voiceAdapterCreator,
+      selfDeaf: true,
+    });
+  }
 }
 
 setInterval(forceRejoinVC, 15000);
@@ -160,7 +163,6 @@ client.once(Events.ClientReady, async () => {
 
     new SlashCommandBuilder().setName("leaderboard").setDescription("🏆 Top"),
 
-    // BLACKJACK
     new SlashCommandBuilder()
       .setName("blackjack")
       .setDescription("🃏 Blackjack")
@@ -185,14 +187,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
   const u = await getUser(interaction.user.id);
 
-  // ================= PRODhan FIX =================
+  // ================= PRODHAN SAFE =================
   if (interaction.isChatInputCommand() && interaction.commandName === "prodhan") {
     const images = fs.existsSync(imageFolder)
       ? fs.readdirSync(imageFolder).filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f))
       : [];
 
     if (!images.length)
-      return interaction.reply("❌ No images found in folder");
+      return interaction.reply("❌ No images found");
 
     const file = images[Math.floor(Math.random() * images.length)];
 
@@ -202,7 +204,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     });
   }
 
-  // ================= MUSIC FIX =================
+  // ================= PLAY FIX =================
   if (interaction.isChatInputCommand() && interaction.commandName === "play") {
     const query = interaction.options.getString("song");
     const vc = interaction.member.voice.channel;
@@ -237,102 +239,56 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.followUp(`🎵 Now playing **${track.title}**`);
     } catch (err) {
       console.log(err);
-      return interaction.followUp("❌ Music error (Lavalink issue)");
+      return interaction.followUp("❌ Music error");
     }
   }
 
-  // ================= BLACKJACK (HIT / STAND FIX) =================
-  if (interaction.isChatInputCommand() && interaction.commandName === "blackjack") {
-    const bet = interaction.options.getInteger("bet");
+  // ================= SKIP FIX =================
+  if (interaction.isChatInputCommand() && interaction.commandName === "skip") {
+    const player = kazagumo.players.get(interaction.guild.id);
 
-    if (u.wallet < bet) return interaction.reply("❌ Not enough money");
+    if (!player) return interaction.reply("❌ No music");
 
-    const playerHand = [drawCard(), drawCard()];
-    const dealerHand = [drawCard(), drawCard()];
-
-    const game = {
-      bet,
-      playerHand,
-      dealerHand,
-    };
-
-    blackjackGames.set(interaction.user.id, game);
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("hit")
-        .setLabel("🟢 HIT")
-        .setStyle(ButtonStyle.Success),
-
-      new ButtonBuilder()
-        .setCustomId("stand")
-        .setLabel("🛑 STAND")
-        .setStyle(ButtonStyle.Danger)
-    );
-
-    return interaction.reply({
-      content:
-        `🃏 Your hand: ${calcHand(playerHand)}\n` +
-        `🎩 Dealer shows: ${dealerHand[0]}`,
-      components: [row],
-    });
+    try {
+      await player.skip();
+      return interaction.reply("⏭️ Skipped");
+    } catch (e) {
+      return interaction.reply("❌ Skip failed");
+    }
   }
 
-  // ================= BLACKJACK BUTTONS =================
-  if (interaction.isButton()) {
-    const game = blackjackGames.get(interaction.user.id);
-    if (!game) return interaction.reply({ content: "❌ No game", ephemeral: true });
+  // ================= STOP FIX (NO VC LEAVE) =================
+  if (interaction.isChatInputCommand() && interaction.commandName === "stop") {
+    const player = kazagumo.players.get(interaction.guild.id);
 
-    const hand = game.playerHand;
-    const dealer = game.dealerHand;
+    if (!player) return interaction.reply("❌ No music");
 
-    if (interaction.customId === "hit") {
-      hand.push(drawCard());
+    player.queue.clear();
 
-      const total = calcHand(hand);
-
-      if (total > 21) {
-        blackjackGames.delete(interaction.user.id);
-        u.wallet -= game.bet;
-        await saveUser(interaction.user.id, u);
-
-        return interaction.update({
-          content: `💥 BUST! You: ${total} | Dealer: ${calcHand(dealer)}\n❌ You lost ${game.bet}`,
-          components: [],
-        });
-      }
-
-      return interaction.update({
-        content:
-          `🃏 Your hand: ${total}\n🎩 Dealer shows: ${dealer[0]}`,
-        components: interaction.message.components,
-      });
+    if (player.playing) {
+      try {
+        await player.skip();
+      } catch {}
     }
 
-    if (interaction.customId === "stand") {
-      while (calcHand(dealer) < 17) dealer.push(drawCard());
+    return interaction.reply("🛑 Stopped (bot stays in VC)");
+  }
 
-      const p = calcHand(hand);
-      const d = calcHand(dealer);
+  // ================= QUEUE =================
+  if (interaction.isChatInputCommand() && interaction.commandName === "queue") {
+    const player = kazagumo.players.get(interaction.guild.id);
 
-      blackjackGames.delete(interaction.user.id);
+    if (!player) return interaction.reply("❌ No music");
 
-      let result = "lose";
+    const current = player.queue.current;
+    const q = player.queue;
 
-      if (p > 21) result = "lose";
-      else if (d > 21 || p > d) result = "win";
-      else if (p === d) result = "tie";
+    let msg = current ? `🎵 Now: **${current.title}**\n\n` : "";
+    if (!q.size) return interaction.reply(msg + "📭 Empty");
 
-      if (result === "win") u.wallet += game.bet;
-      if (result === "lose") u.wallet -= game.bet;
+    msg += q.slice(0, 10).map((t, i) => `${i + 1}. ${t.title}`).join("\n");
 
-      await saveUser(interaction.user.id, u);
-
-      return interaction.update({
-        content: `🃏 You: ${p} | Dealer: ${d}\n🏁 Result: ${result.toUpperCase()}`,
-        components: [],
-      });
-    }
+    return interaction.reply(msg);
   }
 
   // ================= ECONOMY =================
