@@ -676,7 +676,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       });
     }
 
-    // ---------------- STAND ----------------
+    // ---------------- STAND -----------------
     if (interaction.customId === "stand") {
       while (sum(d) < 17) {
         d.push(draw());
