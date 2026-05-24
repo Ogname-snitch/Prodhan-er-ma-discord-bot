@@ -1,34 +1,25 @@
-const { Kazagumo } = require("kazagumo");
-const { Connectors } = require("shoukaku");
+const { Kazagumo, Connectors } = require("kazagumo");
 
 module.exports = (client) => {
-  const kazagumo = new Kazagumo(
+  const nodes = [
+    {
+      name: "main",
+      url: process.env.LAVALINK_HOST,
+      auth: process.env.LAVALINK_PASSWORD,
+      secure: false,
+    },
+  ];
+
+  return new Kazagumo(
     {
       defaultSearchEngine: "youtube",
       send: (guildId, payload) => {
         const guild = client.guilds.cache.get(guildId);
-
-        if (guild) guild.shard.send(payload);
+        if (!guild) return;
+        guild.shard.send(payload);
       },
     },
     new Connectors.DiscordJS(client),
-    [
-      {
-        name: "Lavalink",
-        url: process.env.LAVALINK_HOST,
-        auth: process.env.LAVALINK_PASSWORD,
-        secure: false,
-      },
-    ]
+    nodes
   );
-
-  kazagumo.shoukaku.on("ready", name => {
-    console.log(`${name} ready`);
-  });
-
-  kazagumo.shoukaku.on("error", (name, err) => {
-    console.log(`${name} error`, err);
-  });
-
-  return kazagumo;
 };

@@ -1,63 +1,61 @@
-const {
-  SlashCommandBuilder,
-} = require("discord.js");
+const { joinVoiceChannel } = require("@discordjs/voice");
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("play")
-    .setDescription("Play music")
-    .addStringOption(o =>
-      o
-        .setName("song")
-        .setDescription("Song")
-        .setRequired(true)
-    ),
+  data: {
+    name: "play",
+    description: "Play music",
+  },
 
-  async execute(interaction, client) {
+  async execute(interaction) {
     const query = interaction.options.getString("song");
-
     const vc = interaction.member.voice.channel;
 
-    if (!vc)
-      return interaction.reply("❌ Join VC first");
+    if (!vc) {
+      return interaction.reply("❌ Join a voice channel first");
+    }
 
-    await interaction.reply(`🔍 Searching ${query}`);
+    await interaction.reply("🔍 Searching...");
 
     try {
-      let player = client.kazagumo.players.get(
-        interaction.guild.id
-      );
+      let player = interaction.client.kazagumo.players.get(interaction.guild.id);
 
       if (!player) {
-        player = await client.kazagumo.createPlayer({
+        player = await interaction.client.kazagumo.createPlayer({
           guildId: interaction.guild.id,
-          textId: interaction.channel.id,
           voiceId: vc.id,
+          textId: interaction.channel.id,
           deaf: true,
         });
       }
 
-      const res = await client.kazagumo.search(query, {
+      // IMPORTANT FIX: ensure connection exists
+      if (!player.voiceId) {
+        await player.connect();
+      }
+
+      const result = await interaction.client.kazagumo.search(query, {
         requester: interaction.user,
       });
 
-      if (!res.tracks.length)
-        return interaction.followUp("❌ No songs");
+      if (!result?.tracks?.length) {
+        return interaction.editReply("❌ No results found");
+      }
 
-      const track = res.tracks[0];
+      const track = result.tracks[0];
 
       player.queue.add(track);
 
-      if (!player.playing)
+      if (!player.playing && !player.paused) {
         await player.play();
+      }
 
-      interaction.followUp(
-        `🎵 Playing ${track.title}`
-      );
+      return interaction.editReply(`🎵 Now playing **${track.title}**`);
     } catch (err) {
-      console.log(err);
+      console.log("PLAY ERROR:", err);
 
-      interaction.followUp("❌ Music failed");
+      return interaction.editReply(
+        "❌ Music failed (Lavalink not connected or misconfigured)"
+      );
     }
   },
 };
