@@ -1,29 +1,42 @@
-const vc = interaction.member.voice.channel;
-if (!vc) return interaction.reply("❌ Join VC first");
+const { SlashCommandBuilder } = require("discord.js");
 
-const player = kazagumo.createPlayer({
-  guildId: interaction.guild.id,
-  voiceId: vc.id,
-  textId: interaction.channel.id,
-  deaf: true,
-});
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName("play")
+    .setDescription("Play music")
+    .addStringOption(option =>
+      option.setName("song")
+        .setDescription("Song name or URL")
+        .setRequired(true)
+    ),
 
-let res;
+  async execute(interaction, client) {
+    const query = interaction.options.getString("song");
 
-try {
-  res = await kazagumo.search(query, { requester: interaction.user });
-} catch (e) {
-  console.log(e);
-  return interaction.reply("❌ Lavalink search failed");
-}
+    if (!client.kazagumo) {
+      return interaction.reply({
+        content: "❌ Music system not ready",
+        ephemeral: true
+      });
+    }
 
-if (!res.tracks.length)
-  return interaction.reply("❌ No results found");
+    await interaction.reply(`🔎 Searching: **${query}**`);
 
-const track = res.tracks[0];
+    try {
+      const player = await client.kazagumo.createPlayer({
+        guildId: interaction.guild.id,
+        voiceId: interaction.member.voice.channel.id,
+        textId: interaction.channel.id,
+        deaf: true,
+      });
 
-player.queue.add(track);
+      await player.play(query);
 
-if (!player.playing) await player.play();
+      await interaction.editReply(`🎶 Now playing: **${query}**`);
+    } catch (err) {
+      console.log(err);
 
-return interaction.reply(`🎵 Playing **${track.title}**`);
+      await interaction.editReply("❌ Music failed");
+    }
+  }
+};
