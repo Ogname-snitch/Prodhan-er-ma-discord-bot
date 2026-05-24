@@ -52,7 +52,7 @@ const kazagumo = require("./utils/lavalink")(client);
 client.kazagumo = kazagumo;
 
 // VC STAY
-require("./utils/vcStay")(client);
+const stayInVC = require("./utils/vcStay");
 
 // EVENTS
 require("./handlers/interactionHandler")(client);
