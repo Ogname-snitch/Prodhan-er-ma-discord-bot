@@ -2,12 +2,21 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 
-const cooldowns = require("../../utils/cooldowns");
+const User = require("../../utils/database");
 
-const {
-  getUser,
-  saveUser,
-} = require("../../utils/database");
+const cooldown = 86400000;
+
+async function getUser(id) {
+  let user = await User.findOne({ userId: id });
+
+  if (!user) {
+    user = await User.create({
+      userId: id,
+    });
+  }
+
+  return user;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,14 +28,9 @@ module.exports = {
 
     const now = Date.now();
 
-    if (
-      now - user.lastDaily <
-      cooldowns.daily
-    ) {
+    if (now - user.lastDaily < cooldown) {
       const left = Math.ceil(
-        (cooldowns.daily -
-          (now - user.lastDaily)) /
-          3600000
+        (cooldown - (now - user.lastDaily)) / 3600000
       );
 
       return interaction.reply(
@@ -37,9 +41,9 @@ module.exports = {
     user.wallet += 1000;
     user.lastDaily = now;
 
-    await saveUser(interaction.user.id, user);
+    await user.save();
 
-    interaction.reply(
+    return interaction.reply(
       "🎁 You received 1000 coins"
     );
   },

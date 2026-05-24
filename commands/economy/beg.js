@@ -2,31 +2,35 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 
-const cooldowns = require("../../utils/cooldowns");
+const User = require("../../utils/database");
 
-const {
-  getUser,
-  saveUser,
-} = require("../../utils/database");
+const cooldown = 15000;
+
+async function getUser(id) {
+  let user = await User.findOne({ userId: id });
+
+  if (!user) {
+    user = await User.create({
+      userId: id,
+    });
+  }
+
+  return user;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("beg")
-    .setDescription("🥺 Beg for money"),
+    .setDescription("🥺 Beg for coins"),
 
   async execute(interaction) {
     const user = await getUser(interaction.user.id);
 
     const now = Date.now();
 
-    if (
-      now - user.lastBeg <
-      cooldowns.beg
-    ) {
+    if (now - user.lastBeg < cooldown) {
       const left = Math.ceil(
-        (cooldowns.beg -
-          (now - user.lastBeg)) /
-          1000
+        (cooldown - (now - user.lastBeg)) / 1000
       );
 
       return interaction.reply(
@@ -34,15 +38,14 @@ module.exports = {
       );
     }
 
-    const amount =
-      Math.floor(Math.random() * 200);
+    const amount = Math.floor(Math.random() * 200);
 
     user.wallet += amount;
     user.lastBeg = now;
 
-    await saveUser(interaction.user.id, user);
+    await user.save();
 
-    interaction.reply(
+    return interaction.reply(
       `🥺 Someone gave you ${amount} coins`
     );
   },

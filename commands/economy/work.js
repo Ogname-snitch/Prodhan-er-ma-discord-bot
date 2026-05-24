@@ -2,31 +2,35 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 
-const cooldowns = require("../../utils/cooldowns");
+const User = require("../../utils/database");
 
-const {
-  getUser,
-  saveUser,
-} = require("../../utils/database");
+const cooldown = 30000;
+
+async function getUser(id) {
+  let user = await User.findOne({ userId: id });
+
+  if (!user) {
+    user = await User.create({
+      userId: id,
+    });
+  }
+
+  return user;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("work")
-    .setDescription("💼 Work for money"),
+    .setDescription("💼 Work for coins"),
 
   async execute(interaction) {
     const user = await getUser(interaction.user.id);
 
     const now = Date.now();
 
-    if (
-      now - user.lastWork <
-      cooldowns.work
-    ) {
+    if (now - user.lastWork < cooldown) {
       const left = Math.ceil(
-        (cooldowns.work -
-          (now - user.lastWork)) /
-          1000
+        (cooldown - (now - user.lastWork)) / 1000
       );
 
       return interaction.reply(
@@ -35,15 +39,14 @@ module.exports = {
     }
 
     const amount =
-      Math.floor(Math.random() * 500) +
-      300;
+      Math.floor(Math.random() * 500) + 300;
 
     user.wallet += amount;
     user.lastWork = now;
 
-    await saveUser(interaction.user.id, user);
+    await user.save();
 
-    interaction.reply(
+    return interaction.reply(
       `💼 You earned ${amount} coins`
     );
   },

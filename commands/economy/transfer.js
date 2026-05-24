@@ -2,10 +2,19 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 
-const {
-  getUser,
-  saveUser,
-} = require("../../utils/database");
+const User = require("../../utils/database");
+
+async function getUser(id) {
+  let user = await User.findOne({ userId: id });
+
+  if (!user) {
+    user = await User.create({
+      userId: id,
+    });
+  }
+
+  return user;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,7 +23,7 @@ module.exports = {
     .addUserOption(o =>
       o
         .setName("user")
-        .setDescription("Target user")
+        .setDescription("Target")
         .setRequired(true)
     )
     .addIntegerOption(o =>
@@ -25,48 +34,29 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const sender = await getUser(
-      interaction.user.id
-    );
-
     const targetUser =
       interaction.options.getUser("user");
 
     const amount =
-      interaction.options.getInteger(
-        "amount"
-      );
+      interaction.options.getInteger("amount");
 
-    if (amount <= 0) {
-      return interaction.reply(
-        "❌ Invalid amount"
-      );
-    }
+    if (amount <= 0)
+      return interaction.reply("❌ Invalid amount");
 
-    if (sender.wallet < amount) {
-      return interaction.reply(
-        "❌ Not enough money"
-      );
-    }
+    const user = await getUser(interaction.user.id);
 
-    const target = await getUser(
-      targetUser.id
-    );
+    if (user.wallet < amount)
+      return interaction.reply("❌ Not enough money");
 
-    sender.wallet -= amount;
+    const target = await getUser(targetUser.id);
+
+    user.wallet -= amount;
     target.wallet += amount;
 
-    await saveUser(
-      interaction.user.id,
-      sender
-    );
+    await user.save();
+    await target.save();
 
-    await saveUser(
-      targetUser.id,
-      target
-    );
-
-    interaction.reply(
+    return interaction.reply(
       `💸 Sent ${amount} coins to <@${targetUser.id}>`
     );
   },

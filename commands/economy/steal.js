@@ -2,17 +2,26 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 
-const cooldowns = require("../../utils/cooldowns");
+const User = require("../../utils/database");
 
-const {
-  getUser,
-  saveUser,
-} = require("../../utils/database");
+const cooldown = 60000;
+
+async function getUser(id) {
+  let user = await User.findOne({ userId: id });
+
+  if (!user) {
+    user = await User.create({
+      userId: id,
+    });
+  }
+
+  return user;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("steal")
-    .setDescription("🕵️ Steal money")
+    .setDescription("🕵️ Steal coins")
     .addUserOption(o =>
       o
         .setName("user")
@@ -21,41 +30,29 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const user = await getUser(
-      interaction.user.id
-    );
-
     const targetUser =
       interaction.options.getUser("user");
 
-    if (
-      targetUser.id === interaction.user.id
-    ) {
+    if (targetUser.id === interaction.user.id) {
       return interaction.reply(
         "❌ You can't steal from yourself"
       );
     }
 
+    const user = await getUser(interaction.user.id);
+    const target = await getUser(targetUser.id);
+
     const now = Date.now();
 
-    if (
-      now - user.lastSteal <
-      cooldowns.steal
-    ) {
+    if (now - user.lastSteal < cooldown) {
       const left = Math.ceil(
-        (cooldowns.steal -
-          (now - user.lastSteal)) /
-          1000
+        (cooldown - (now - user.lastSteal)) / 1000
       );
 
       return interaction.reply(
         `⏳ Wait ${left} seconds`
       );
     }
-
-    const target = await getUser(
-      targetUser.id
-    );
 
     if (target.wallet <= 0) {
       return interaction.reply(
@@ -69,20 +66,12 @@ module.exports = {
 
     target.wallet -= stolen;
     user.wallet += stolen;
-
     user.lastSteal = now;
 
-    await saveUser(
-      interaction.user.id,
-      user
-    );
+    await user.save();
+    await target.save();
 
-    await saveUser(
-      targetUser.id,
-      target
-    );
-
-    interaction.reply(
+    return interaction.reply(
       `🕵️ You stole ${stolen} coins from <@${targetUser.id}>`
     );
   },

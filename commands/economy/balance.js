@@ -2,9 +2,19 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 
-const {
-  getUser,
-} = require("../../utils/database");
+const User = require("../../utils/database");
+
+async function getUser(id) {
+  let user = await User.findOne({ userId: id });
+
+  if (!user) {
+    user = await User.create({
+      userId: id,
+    });
+  }
+
+  return user;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,7 +24,7 @@ module.exports = {
   async execute(interaction) {
     const user = await getUser(interaction.user.id);
 
-    interaction.reply(
+    return interaction.reply(
       `💰 You have ${user.wallet} coins`
     );
   },

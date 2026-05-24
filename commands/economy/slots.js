@@ -2,15 +2,24 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 
-const {
-  getUser,
-  saveUser,
-} = require("../../utils/database");
+const User = require("../../utils/database");
+
+async function getUser(id) {
+  let user = await User.findOne({ userId: id });
+
+  if (!user) {
+    user = await User.create({
+      userId: id,
+    });
+  }
+
+  return user;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("slots")
-    .setDescription("🎰 Slots")
+    .setDescription("🎰 Slot machine")
     .addIntegerOption(o =>
       o
         .setName("bet")
@@ -19,22 +28,15 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    const bet = interaction.options.getInteger("bet");
+
     const user = await getUser(interaction.user.id);
 
-    const bet =
-      interaction.options.getInteger("bet");
+    if (bet <= 0)
+      return interaction.reply("❌ Invalid bet");
 
-    if (bet <= 0) {
-      return interaction.reply(
-        "❌ Invalid bet"
-      );
-    }
-
-    if (user.wallet < bet) {
-      return interaction.reply(
-        "❌ Not enough money"
-      );
-    }
+    if (user.wallet < bet)
+      return interaction.reply("❌ Not enough money");
 
     const symbols = [
       "🍒",
@@ -46,9 +48,7 @@ module.exports = {
 
     const roll = () =>
       symbols[
-        Math.floor(
-          Math.random() * symbols.length
-        )
+        Math.floor(Math.random() * symbols.length)
       ];
 
     const r1 = roll();
@@ -57,24 +57,22 @@ module.exports = {
 
     let multi = 0;
 
-    if (r1 === r2 && r2 === r3)
+    if (r1 === r2 && r2 === r3) {
       multi = 5;
-    else if (
+    } else if (
       r1 === r2 ||
       r2 === r3 ||
       r1 === r3
-    )
+    ) {
       multi = 2;
+    }
 
     if (multi > 0) {
       const win = bet * multi;
 
       user.wallet += win;
 
-      await saveUser(
-        interaction.user.id,
-        user
-      );
+      await user.save();
 
       return interaction.reply(
         `🎰 | ${r1} | ${r2} | ${r3} |\n🎉 You won ${win} coins`
@@ -83,12 +81,9 @@ module.exports = {
 
     user.wallet -= bet;
 
-    await saveUser(
-      interaction.user.id,
-      user
-    );
+    await user.save();
 
-    interaction.reply(
+    return interaction.reply(
       `🎰 | ${r1} | ${r2} | ${r3} |\n💀 You lost ${bet} coins`
     );
   },
