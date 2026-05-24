@@ -72,7 +72,7 @@ if (fs.existsSync(commandsPath)) {
   console.log("❌ Commands folder missing");
 }
 
-// ---------------- LAVALINK (UNCHANGED - IMPORTANT) ----------------
+// ---------------- LAVALINK (UNCHANGED) ----------------
 let kazagumo = null;
 
 try {
@@ -107,15 +107,20 @@ try {
           console.log(`🔁 Lavalink reconnecting: ${name}`);
         });
       }
-    } else {
-      console.log("❌ Lavalink returned null");
     }
   }
 } catch (err) {
   console.log("⚠️ Lavalink error:", err.message);
 }
 
-// ---------------- SAFE 24/7 VC (KAZAGUMO ONLY) ----------------
+// ---------------- SAFE 24/7 VC SYSTEM (FIXED) ----------------
+//
+// IMPORTANT FIX:
+// ❌ removed broken joinVC()
+// ❌ removed getVoiceConnection spam loop
+// ❌ removed conflicting VC systems
+//
+// ✔ Kazagumo handles ALL VC connections
 
 async function keepPlayerAlive() {
   try {
@@ -141,7 +146,7 @@ async function keepPlayerAlive() {
       console.log("🔊 24/7 VC player created");
     }
 
-    // reconnect ONLY if disconnected
+    // reconnect safely if needed
     if (player.state === "DISCONNECTED") {
       await player.connect();
       console.log("🔁 VC reconnected safely");
@@ -152,11 +157,8 @@ async function keepPlayerAlive() {
   }
 }
 
-// run every 30 seconds (IMPORTANT: not spammy)
+// ONLY ONE interval (prevents crashes + lag)
 setInterval(keepPlayerAlive, 30000);
-
-// run safe check every 30s (NOT aggressive)
-setInterval(keepAliveOnly, 30000);
 
 // ---------------- HANDLER ----------------
 try {
@@ -178,6 +180,11 @@ client.once(Events.ClientReady, async () => {
     activities: [{ name: "beating prodhan" }],
     status: "online",
   });
+
+  // start VC system only AFTER login
+  setTimeout(() => {
+    keepPlayerAlive();
+  }, 5000);
 });
 
 // ---------------- SAFETY ----------------
