@@ -67,6 +67,32 @@ const kazagumo = new Kazagumo(
   nodes
 );
 
+// ---------------- LAVALINK ERROR FIX ----------------
+kazagumo.shoukaku.on("ready", (name) => {
+  console.log(`${name} Lavalink ready`);
+});
+
+kazagumo.shoukaku.on("error", (name, error) => {
+  console.log(`Lavalink error (${name}):`, error);
+});
+
+kazagumo.shoukaku.on("close", (name, code, reason) => {
+  console.log(`Lavalink closed (${name}) ${code} ${reason}`);
+});
+
+kazagumo.shoukaku.on("disconnect", (name, players, moved) => {
+  console.log(`Lavalink disconnected (${name})`);
+});
+
+// PREVENT BOT CRASH
+process.on("unhandledRejection", (reason) => {
+  console.log("Unhandled Rejection:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.log("Uncaught Exception:", err);
+});
+
 // ---------------- IMAGE ----------------
 const imageFolder = path.join(__dirname, "images");
 
@@ -273,53 +299,59 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   // ---------------- PLAY ----------------
-  if (interaction.commandName === "play") {
-    const query = interaction.options.getString("song");
-    const vc = interaction.member.voice.channel;
+if (interaction.commandName === "play") {
+  const query = interaction.options.getString("song");
+  const vc = interaction.member.voice.channel;
 
-    if (!vc)
-      return interaction.reply("❌ Join a voice channel first");
+  if (!vc)
+    return interaction.reply("❌ Join VC first");
 
-    await interaction.reply(`🔍 Searching **${query}**`);
+  await interaction.reply(`🔍 Searching **${query}**`);
 
-    try {
-      let player = kazagumo.players.get(interaction.guild.id);
+  try {
+    let player = kazagumo.players.get(interaction.guild.id);
 
-      if (!player) {
-        player = await kazagumo.createPlayer({
-          guildId: interaction.guild.id,
-          textId: interaction.channel.id,
-          voiceId: vc.id,
-          deaf: true,
-        });
-      }
-
-      const res = await kazagumo.search(query, {
-        requester: interaction.user,
+    if (!player) {
+      player = await kazagumo.createPlayer({
+        guildId: interaction.guild.id,
+        textId: interaction.channel.id,
+        voiceId: vc.id,
+        deaf: true,
       });
-
-      if (!res || !res.tracks.length)
-        return interaction.followUp("❌ No songs found");
-
-      const track = res.tracks[0];
-
-      player.queue.add(track);
-
-      if (!player.playing && !player.paused) {
-        await player.play();
-      }
-
-      return interaction.followUp(
-        `🎵 Now playing **${track.title}**`
-      );
-    } catch (err) {
-      console.log("PLAY ERROR:", err);
-
-      return interaction.followUp(
-        "❌ Music system error. Check Lavalink."
-      );
     }
+
+    // FORCE CONNECT
+    if (!player.voiceId) {
+      await player.connect();
+    }
+
+    const res = await kazagumo.search(query, {
+      requester: interaction.user,
+    });
+
+    if (!res || !res.tracks.length) {
+      return interaction.followUp("❌ No songs found");
+    }
+
+    const track = res.tracks[0];
+
+    player.queue.add(track);
+
+    if (!player.playing && !player.paused) {
+      await player.play();
+    }
+
+    return interaction.followUp(
+      `🎵 Now playing **${track.title}**`
+    );
+  } catch (err) {
+    console.log("PLAY ERROR:", err);
+
+    return interaction.followUp(
+      "❌ Lavalink connection failed"
+    );
   }
+}
 
   // ---------------- SKIP ----------------
   if (interaction.commandName === "skip") {
