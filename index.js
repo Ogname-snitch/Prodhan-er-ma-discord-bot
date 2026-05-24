@@ -50,12 +50,16 @@ if (fs.existsSync(commandsPath)) {
 
     if (!fs.existsSync(folderPath)) continue;
 
-    const files = fs.readdirSync(folderPath).filter(f => f.endsWith(".js"));
+    const files = fs
+      .readdirSync(folderPath)
+      .filter(f => f.endsWith(".js"));
 
     for (const file of files) {
       const filePath = path.join(folderPath, file);
 
       try {
+        delete require.cache[require.resolve(filePath)];
+
         const command = require(filePath);
 
         if (!command?.data?.name) {
@@ -64,45 +68,96 @@ if (fs.existsSync(commandsPath)) {
         }
 
         client.commands.set(command.data.name, command);
+
         console.log(`✅ Loaded: ${file}`);
       } catch (err) {
         console.log(`❌ Failed loading ${file}:`, err.message);
       }
     }
   }
+} else {
+  console.log("❌ Commands folder missing");
 }
 
-// ---------------- LAVALINK (SAFE FIX) ----------------
+// ---------------- LAVALINK (FULL FIX) ----------------
 let kazagumo = null;
 
 try {
-  const lavalinkPath = path.join(__dirname, "utils", "lavalink.js");
+  const lavalinkPath = path.join(
+    __dirname,
+    "utils",
+    "lavalink.js"
+  );
 
   if (fs.existsSync(lavalinkPath)) {
     kazagumo = require(lavalinkPath)(client);
-    client.kazagumo = kazagumo;
-    console.log("✅ Lavalink loaded");
+
+    if (kazagumo) {
+      client.kazagumo = kazagumo;
+
+      console.log("✅ Lavalink loaded");
+
+      // Lavalink debug logs
+      if (kazagumo.shoukaku) {
+        kazagumo.shoukaku.on("ready", (name) => {
+          console.log(`✅ Lavalink node ready: ${name}`);
+        });
+
+        kazagumo.shoukaku.on("error", (name, error) => {
+          console.log(`❌ Lavalink node error (${name}):`, error);
+        });
+
+        kazagumo.shoukaku.on("close", (name, code, reason) => {
+          console.log(
+            `⚠️ Lavalink node closed (${name}) Code:${code} Reason:${reason}`
+          );
+        });
+
+        kazagumo.shoukaku.on("disconnect", (name) => {
+          console.log(`⚠️ Lavalink node disconnected: ${name}`);
+        });
+
+        kazagumo.shoukaku.on("reconnecting", (name) => {
+          console.log(`🔁 Lavalink reconnecting: ${name}`);
+        });
+      }
+    } else {
+      console.log("❌ Lavalink returned null");
+    }
   } else {
-    console.log("⚠️ Lavalink missing");
+    console.log("⚠️ lavalink.js missing");
   }
 } catch (err) {
   console.log("⚠️ Lavalink error:", err.message);
 }
 
-// ---------------- VC STAY (STABLE 24/7 FIX) ----------------
+// ---------------- VC STAY (24/7 FIX) ----------------
 
 let vcConnection = null;
 let reconnecting = false;
 
 async function joinVC() {
   try {
-    const guild = client.guilds.cache.get(process.env.GUILD_ID);
-    if (!guild) return;
+    const guild = client.guilds.cache.get(
+      process.env.GUILD_ID
+    );
 
-    const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-    if (!channel) return;
+    if (!guild) {
+      console.log("❌ Guild not found");
+      return;
+    }
+
+    const channel = guild.channels.cache.get(
+      process.env.CHANNEL_ID
+    );
+
+    if (!channel) {
+      console.log("❌ Voice channel not found");
+      return;
+    }
 
     const existing = getVoiceConnection(guild.id);
+
     if (existing) {
       vcConnection = existing;
       return;
@@ -112,46 +167,84 @@ async function joinVC() {
       channelId: channel.id,
       guildId: guild.id,
       adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf: true, // always deafened
+      selfDeaf: true,
+      selfMute: false,
     });
 
-    console.log("🔊 Joined VC (deafened)");
+    await entersState(
+      vcConnection,
+      VoiceConnectionStatus.Ready,
+      30000
+    );
 
-    vcConnection.on(VoiceConnectionStatus.Disconnected, async () => {
-      if (reconnecting) return;
-      reconnecting = true;
+    console.log("🔊 Joined VC permanently");
 
-      console.log("⚠️ VC disconnected → retrying...");
+    vcConnection.on(
+      VoiceConnectionStatus.Disconnected,
+      async () => {
+        if (reconnecting) return;
 
-      setTimeout(() => {
-        reconnecting = false;
-        joinVC();
-      }, 5000);
-    });
+        reconnecting = true;
 
-    vcConnection.on(VoiceConnectionStatus.Destroyed, () => {
-      console.log("❌ VC destroyed → rejoining...");
-      setTimeout(joinVC, 5000);
-    });
+        console.log("⚠️ VC disconnected");
+
+        setTimeout(async () => {
+          reconnecting = false;
+
+          try {
+            vcConnection.destroy();
+          } catch {}
+
+          joinVC();
+        }, 5000);
+      }
+    );
+
+    vcConnection.on(
+      VoiceConnectionStatus.Destroyed,
+      () => {
+        console.log("❌ VC destroyed");
+
+        setTimeout(() => {
+          joinVC();
+        }, 5000);
+      }
+    );
 
   } catch (err) {
     console.log("VC error:", err.message);
-    setTimeout(joinVC, 5000);
+
+    setTimeout(() => {
+      joinVC();
+    }, 5000);
   }
 }
 
-// keep-alive heartbeat (lightweight, no spam)
+// heartbeat
 setInterval(() => {
-  const conn = getVoiceConnection(process.env.GUILD_ID);
-  if (!conn) joinVC();
+  try {
+    const conn = getVoiceConnection(
+      process.env.GUILD_ID
+    );
+
+    if (!conn) {
+      console.log("🔁 VC missing → reconnecting");
+      joinVC();
+    }
+  } catch {}
 }, 15000);
 
 // ---------------- HANDLER ----------------
 try {
-  const handlerPath = path.join(__dirname, "handlers", "interactionHandler.js");
+  const handlerPath = path.join(
+    __dirname,
+    "handlers",
+    "interactionHandler.js"
+  );
 
   if (fs.existsSync(handlerPath)) {
     require(handlerPath)(client);
+
     console.log("✅ handler loaded");
   } else {
     console.log("⚠️ handler missing");
@@ -161,19 +254,32 @@ try {
 }
 
 // ---------------- READY ----------------
-client.once(Events.ClientReady, () => {
+client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   client.user.setPresence({
-    activities: [{ name: "beating prodhan" }],
+    activities: [
+      {
+        name: "beating prodhan",
+      },
+    ],
     status: "online",
   });
 
-  setTimeout(joinVC, 5000);
+  // join VC after startup
+  setTimeout(() => {
+    joinVC();
+  }, 5000);
 });
 
 // ---------------- SAFETY ----------------
-process.on("unhandledRejection", console.log);
-process.on("uncaughtException", console.log);
+process.on("unhandledRejection", (err) => {
+  console.log("Unhandled Rejection:", err);
+});
 
+process.on("uncaughtException", (err) => {
+  console.log("Uncaught Exception:", err);
+});
+
+// ---------------- LOGIN ----------------
 client.login(process.env.TOKEN);
