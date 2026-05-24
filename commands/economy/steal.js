@@ -1,8 +1,8 @@
 const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
-const cooldown = 60000; // normal steal cooldown (1 min)
-const jailTime = 100 * 60 * 1000; // 10 minutes jail
+const cooldown = 60000; // 1 minute
+const jailTime = 10 * 60 * 1000; // 10 minutes
 
 async function getUser(id) {
   return await User.getUser(id);
@@ -30,10 +30,10 @@ module.exports = {
 
     const now = Date.now();
 
-    // 🟥 CHECK JAIL STATUS
-    if (user.jailUntil && now < user.jailUntil) {
+    // 🚔 JAIL CHECK (NEW FEATURE)
+    if (user.jailUntil && user.jailUntil > now) {
       const left = Math.ceil((user.jailUntil - now) / 1000);
-      return interaction.reply(`🚔 You are in jail for ${left}s`);
+      return interaction.reply(`🚔 You're in jail for ${left}s`);
     }
 
     // ⏳ COOLDOWN CHECK
@@ -46,17 +46,17 @@ module.exports = {
       return interaction.reply("❌ Target has no money");
     }
 
-    // 🎲 FAIL CHANCE (DEFAULT 30%)
+    // 🎲 FAIL CHANCE SYSTEM
     let failChance = 0.30;
 
-    // 🟣 PERK: ROBBER reduces fail chance to 15%
+    // 🟣 PERK: Robber reduces fail chance
     if (user.perk === "Robber") {
       failChance = 0.15;
     }
 
     const failed = Math.random() < failChance;
 
-    // ❌ FAILED → GO TO JAIL
+    // ❌ FAILED → JAIL
     if (failed) {
       user.jailUntil = now + jailTime;
       user.lastSteal = now;
@@ -64,12 +64,12 @@ module.exports = {
       await user.save();
 
       return interaction.reply(
-        `🚨 You got caught and sent to jail for 10 minutes!`
+        "🚨 You got caught! Sent to jail for 10 minutes."
       );
     }
 
     // 💰 SUCCESS STEAL
-    const stolen = Math.floor(Math.random() * target.wallet);
+    const stolen = Math.floor(Math.random() * Math.max(1, target.wallet));
 
     target.wallet -= stolen;
     user.wallet += stolen;
