@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-// PERKS LIST (kept for reference / future use)
+// PERKS LIST (reference only)
 const perks = ["Workaholic", "Alcoholic", "Robber", "Beggar"];
 
 // CONNECT TO MONGODB
@@ -53,7 +53,13 @@ const userSchema = new mongoose.Schema({
     default: "None",
   },
 
-  // ⭐ NEW: tracks if first perk is claimed
+  // ⭐ NEW: jail system (FIXES YOUR ISSUE)
+  jailUntil: {
+    type: Number,
+    default: 0,
+  },
+
+  // ⭐ NEW: tracks if user already used free perk
   perkClaimed: {
     type: Boolean,
     default: false,
@@ -73,7 +79,8 @@ userSchema.statics.getUser = async function (userId) {
       lastBeg: 0,
       lastSteal: 0,
       perk: "None",
-      perkClaimed: false, // ⭐ IMPORTANT FIX
+      jailUntil: 0,
+      perkClaimed: false,
     });
   }
 
