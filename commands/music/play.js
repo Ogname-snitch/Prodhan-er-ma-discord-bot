@@ -13,12 +13,12 @@ module.exports = {
   async execute(interaction, client) {
     const query = interaction.options.getString("song");
 
-    if (!client.kazagumo) {
-      return interaction.reply({
-        content: "❌ Music system not ready",
-        ephemeral: true
-      });
-    }
+   if (!client.kazagumo?.shoukaku?.nodes?.size) {
+  return interaction.reply({
+    content: "❌ Lavalink node not connected",
+    ephemeral: true,
+  });
+}
 
     await interaction.reply(`🔎 Searching: **${query}**`);
 
