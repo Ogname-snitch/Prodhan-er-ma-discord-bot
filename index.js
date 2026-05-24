@@ -15,6 +15,10 @@ const {
   joinVoiceChannel,
   getVoiceConnection,
   VoiceConnectionStatus,
+  entersState,
+  createAudioPlayer,
+  createAudioResource,
+  AudioPlayerStatus,
 } = require("@discordjs/voice");
 
 const client = new Client({
@@ -71,59 +75,6 @@ if (fs.existsSync(commandsPath)) {
   }
 }
 
-// ---------------- VC 24/7 FIX (MAIN PART) ----------------
-
-function keepVCAlive() {
-  const guildId = process.env.GUILD_ID;
-  const channelId = process.env.CHANNEL_ID;
-
-  if (!guildId || !channelId) {
-    console.log("❌ Missing GUILD_ID or CHANNEL_ID");
-    return;
-  }
-
-  const guild = client.guilds.cache.get(guildId);
-  if (!guild) return;
-
-  const channel = guild.channels.cache.get(channelId);
-  if (!channel) return;
-
-  const existing = getVoiceConnection(guildId);
-
-  if (existing) return; // already connected
-
-  const connection = joinVoiceChannel({
-    channelId: channel.id,
-    guildId: guild.id,
-    adapterCreator: guild.voiceAdapterCreator,
-    selfDeaf: true,
-    selfMute: false,
-  });
-
-  console.log("🔊 Joined VC");
-
-  // 🔥 auto reconnect if dropped
-  connection.on(VoiceConnectionStatus.Disconnected, () => {
-    console.log("⚠️ VC disconnected → reconnecting...");
-    setTimeout(keepVCAlive, 3000);
-  });
-
-  connection.on(VoiceConnectionStatus.Destroyed, () => {
-    console.log("❌ VC destroyed → reconnecting...");
-    setTimeout(keepVCAlive, 3000);
-  });
-}
-
-// heartbeat system (prevents idle kick)
-setInterval(() => {
-  const connection = getVoiceConnection(process.env.GUILD_ID);
-
-  if (!connection) {
-    console.log("🔁 VC missing → reconnecting");
-    keepVCAlive();
-  }
-}, 10000);
-
 // ---------------- LAVALINK ----------------
 let kazagumo = null;
 
@@ -141,8 +92,80 @@ try {
   console.log("⚠️ Lavalink error:", err.message);
 }
 
-// ---------------- VC STAY MODULE SKIP ----------------
-console.log("ℹ️ Using built-in VC system (vcStay disabled)");
+// ---------------- VC KEEP ALIVE FIX (REAL FIX) ----------------
+
+let connection = null;
+let player = null;
+
+function createSilentAudio() {
+  // 1-second silent audio buffer (prevents AFK disconnect)
+  const buffer = Buffer.from([0xF8, 0xFF, 0xFE]);
+  return createAudioResource(buffer, { inlineVolume: false });
+}
+
+async function joinVC() {
+  const guild = client.guilds.cache.get(process.env.GUILD_ID);
+  const channel = guild?.channels?.cache.get(process.env.CHANNEL_ID);
+
+  if (!guild || !channel) return;
+
+  if (getVoiceConnection(guild.id)) return;
+
+  connection = joinVoiceChannel({
+    channelId: channel.id,
+    guildId: guild.id,
+    adapterCreator: guild.voiceAdapterCreator,
+    selfDeaf: true, // 🔥 ALWAYS DEAFENED
+  });
+
+  console.log("🔊 Joined VC (deafened)");
+
+  try {
+    await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+  } catch (err) {
+    console.log("❌ VC failed, retrying...");
+    setTimeout(joinVC, 5000);
+    return;
+  }
+
+  // create audio player (keeps VC alive)
+  player = createAudioPlayer();
+
+  player.on(AudioPlayerStatus.Idle, () => {
+    const resource = createSilentAudio();
+    player.play(resource);
+  });
+
+  connection.subscribe(player);
+
+  // start silent loop
+  player.play(createSilentAudio());
+}
+
+// auto-reconnect system
+setInterval(() => {
+  const conn = getVoiceConnection(process.env.GUILD_ID);
+
+  if (!conn) {
+    console.log("🔁 VC missing → reconnecting");
+    joinVC();
+  }
+}, 10000);
+
+// handle VC state crashes
+function setupVCEvents() {
+  if (!connection) return;
+
+  connection.on(VoiceConnectionStatus.Disconnected, () => {
+    console.log("⚠️ VC disconnected → reconnecting");
+    setTimeout(joinVC, 3000);
+  });
+
+  connection.on(VoiceConnectionStatus.Destroyed, () => {
+    console.log("❌ VC destroyed → reconnecting");
+    setTimeout(joinVC, 3000);
+  });
+}
 
 // ---------------- HANDLER ----------------
 try {
@@ -167,8 +190,10 @@ client.once(Events.ClientReady, () => {
     status: "online",
   });
 
-  // start VC after login
-  setTimeout(keepVCAlive, 5000);
+  setTimeout(() => {
+    joinVC();
+    setupVCEvents();
+  }, 5000);
 });
 
 // ---------------- SAFETY ----------------
