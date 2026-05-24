@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const fs = require("fs");
+const path = require("path");
 
 const {
   Client,
@@ -32,37 +33,64 @@ app.listen(process.env.PORT || 3000, () => {
 });
 
 // ---------------- LOAD COMMANDS ----------------
-if (fs.existsSync("./commands")) {
-  const folders = fs.readdirSync("./commands");
+try {
+  if (fs.existsSync("./commands")) {
+    const folders = fs.readdirSync("./commands");
 
-  for (const folder of folders) {
-    const files = fs
-      .readdirSync(`./commands/${folder}`)
-      .filter(f => f.endsWith(".js"));
+    for (const folder of folders) {
+      const folderPath = `./commands/${folder}`;
 
-    for (const file of files) {
-      const command = require(`./commands/${folder}/${file}`);
-      client.commands.set(command.data.name, command);
+      if (!fs.existsSync(folderPath)) continue;
+
+      const files = fs
+        .readdirSync(folderPath)
+        .filter((f) => f.endsWith(".js"));
+
+      for (const file of files) {
+        const filePath = path.join(folderPath, file);
+
+        try {
+          const command = require(filePath);
+
+          if (command?.data?.name) {
+            client.commands.set(command.data.name, command);
+          }
+        } catch (err) {
+          console.log(`❌ Failed loading command ${file}:`, err.message);
+        }
+      }
     }
   }
+} catch (err) {
+  console.log("❌ Command loader error:", err.message);
 }
 
 // ---------------- LAVALINK ----------------
 let kazagumo = null;
 
 try {
-  kazagumo = require("./utils/lavalink")(client);
-  client.kazagumo = kazagumo;
+  const lavalinkPath = "./utils/lavalink.js";
+
+  if (fs.existsSync(lavalinkPath)) {
+    kazagumo = require(lavalinkPath)(client);
+    client.kazagumo = kazagumo;
+    console.log("✅ Lavalink loaded");
+  } else {
+    console.log("⚠️ lavalink.js not found, skipping music system");
+  }
 } catch (err) {
-  console.log("⚠️ Lavalink not loaded:", err.message);
+  console.log("⚠️ Lavalink error:", err.message);
 }
 
 // ---------------- VC STAY (SAFE FIX) ----------------
 try {
-  if (fs.existsSync("./utils/vcStay.js")) {
-    require("./utils/vcStay")(client);
+  const vcPath = "./utils/vcStay.js";
+
+  if (fs.existsSync(vcPath)) {
+    require(vcPath)(client);
+    console.log("✅ vcStay loaded");
   } else {
-    console.log("⚠️ vcStay.js missing — skipping VC auto join");
+    console.log("⚠️ vcStay.js missing — skipping auto VC join");
   }
 } catch (err) {
   console.log("⚠️ vcStay error:", err.message);
@@ -70,9 +98,16 @@ try {
 
 // ---------------- HANDLERS ----------------
 try {
-  require("./handlers/interactionHandler")(client);
+  const handlerPath = "./handlers/interactionHandler.js";
+
+  if (fs.existsSync(handlerPath)) {
+    require(handlerPath)(client);
+    console.log("✅ interaction handler loaded");
+  } else {
+    console.log("⚠️ interactionHandler missing");
+  }
 } catch (err) {
-  console.log("⚠️ interactionHandler missing:", err.message);
+  console.log("⚠️ handler error:", err.message);
 }
 
 // ---------------- READY ----------------
