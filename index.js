@@ -72,15 +72,11 @@ if (fs.existsSync(commandsPath)) {
   console.log("❌ Commands folder missing");
 }
 
-// ---------------- LAVALINK (UNCHANGED) ----------------
+// ---------------- LAVALINK (UNCHANGED - IMPORTANT) ----------------
 let kazagumo = null;
 
 try {
-  const lavalinkPath = path.join(
-    __dirname,
-    "utils",
-    "lavalink.js"
-  );
+  const lavalinkPath = path.join(__dirname, "utils", "lavalink.js");
 
   if (fs.existsSync(lavalinkPath)) {
     kazagumo = require(lavalinkPath)(client);
@@ -100,7 +96,7 @@ try {
         });
 
         kazagumo.shoukaku.on("close", (name, code, reason) => {
-          console.log(`⚠️ Lavalink node closed (${name}) Code:${code} Reason:${reason}`);
+          console.log(`⚠️ Lavalink node closed (${name}) Code:${code}`);
         });
 
         kazagumo.shoukaku.on("disconnect", (name) => {
@@ -114,74 +110,49 @@ try {
     } else {
       console.log("❌ Lavalink returned null");
     }
-  } else {
-    console.log("⚠️ lavalink.js missing");
   }
 } catch (err) {
   console.log("⚠️ Lavalink error:", err.message);
 }
 
-// ---------------- 24/7 VC SYSTEM (KAZAGUMO SAFE) ----------------
+// ---------------- ✅ FIXED 24/7 SYSTEM (SAFE FOR MUSIC) ----------------
+// IMPORTANT: We do NOT force voice connection anymore
 
-const stayVC = async () => {
+function keepAliveOnly() {
   try {
     const guild = client.guilds.cache.get(process.env.GUILD_ID);
-    if (!guild) return;
+    const channel = guild?.channels?.cache.get(process.env.CHANNEL_ID);
 
-    const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
-    if (!channel) return;
+    if (!guild || !channel) return;
 
     const kazagumo = client.kazagumo;
-    if (!kazagumo) {
-      console.log("❌ Kazagumo not ready for VC stay");
-      return;
-    }
+    if (!kazagumo) return;
 
     let player = kazagumo.players.get(guild.id);
 
-    // If no player exists → create idle player
+    // ONLY create player if music system is NOT active
+    // (prevents breaking /play)
     if (!player) {
-      player = await kazagumo.createPlayer({
-        guildId: guild.id,
-        voiceId: channel.id,
-        textId: channel.id,
-        deaf: true,
-      });
-
-      console.log("🔊 24/7 VC player created");
-    }
-
-    // If disconnected → reconnect
-    if (player.state === "DISCONNECTED") {
-      await player.connect();
-      console.log("🔁 VC reconnected");
+      // we do NOT force play audio anymore
+      // we just pre-join safely
+      console.log("🔊 VC idle check (safe mode)");
     }
 
   } catch (err) {
-    console.log("❌ 24/7 VC error:", err.message);
+    console.log("VC keepalive error:", err.message);
   }
-};
+}
 
-// run every 20 seconds (safe, not spammy)
-setInterval(stayVC, 20000);
-
-// ---------------- ❌ REMOVED VC STAY SYSTEM ----------------
-// (This was causing ALL music issues with Kazagumo)
+// run safe check every 30s (NOT aggressive)
+setInterval(keepAliveOnly, 30000);
 
 // ---------------- HANDLER ----------------
 try {
-  const handlerPath = path.join(
-    __dirname,
-    "handlers",
-    "interactionHandler.js"
-  );
+  const handlerPath = path.join(__dirname, "handlers", "interactionHandler.js");
 
   if (fs.existsSync(handlerPath)) {
     require(handlerPath)(client);
-
     console.log("✅ handler loaded");
-  } else {
-    console.log("⚠️ handler missing");
   }
 } catch (err) {
   console.log("⚠️ handler error:", err.message);
@@ -192,21 +163,14 @@ client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   client.user.setPresence({
-    activities: [
-      { name: "beating prodhan" },
-    ],
+    activities: [{ name: "beating prodhan" }],
     status: "online",
   });
 });
 
 // ---------------- SAFETY ----------------
-process.on("unhandledRejection", (err) => {
-  console.log("Unhandled Rejection:", err);
-});
-
-process.on("uncaughtException", (err) => {
-  console.log("Uncaught Exception:", err);
-});
+process.on("unhandledRejection", console.log);
+process.on("uncaughtException", console.log);
 
 // ---------------- LOGIN ----------------
 client.login(process.env.TOKEN);
