@@ -1,10 +1,4 @@
-const {
-  SlashCommandBuilder,
-} = require("discord.js");
-
-const {
-  getVoiceConnection,
-} = require("@discordjs/voice");
+const { SlashCommandBuilder } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -18,9 +12,8 @@ module.exports = {
     ),
 
   async execute(interaction, client) {
-
     try {
-
+      // ❌ FIX: proper system check
       if (!client.kazagumo) {
         return interaction.reply({
           content: "❌ Music system not ready",
@@ -28,8 +21,7 @@ module.exports = {
         });
       }
 
-      const voiceChannel =
-        interaction.member.voice.channel;
+      const voiceChannel = interaction.member.voice.channel;
 
       if (!voiceChannel) {
         return interaction.reply({
@@ -40,55 +32,35 @@ module.exports = {
 
       await interaction.deferReply();
 
-      // 🔥 FORCE VC CONNECTION
-      const existing =
-        getVoiceConnection(interaction.guild.id);
+      const query = interaction.options.getString("song");
 
-      if (!existing) {
-        return interaction.editReply(
-          "❌ Bot VC connection missing"
-        );
-      }
+      // 🔥 SEARCH FIRST
+      const result = await client.kazagumo.search(query, {
+        requester: interaction.user,
+      });
 
-      // 🔥 GET OR CREATE PLAYER
-      let player =
-        client.kazagumo.players.get(
-          interaction.guild.id
-        );
-
-      if (!player) {
-
-        player =
-          await client.kazagumo.createPlayer({
-            guildId: interaction.guild.id,
-            textId: interaction.channel.id,
-            voiceId: voiceChannel.id,
-            deaf: true,
-          });
-      }
-
-      // 🔥 SEARCH
-      const query =
-        interaction.options.getString("song");
-
-      const result =
-        await client.kazagumo.search(
-          query,
-          {
-            requester: interaction.user,
-          }
-        );
-
-      if (
-        !result ||
-        !result.tracks.length
-      ) {
-        return interaction.editReply(
-          "❌ No results found"
-        );
+      if (!result || !result.tracks.length) {
+        return interaction.editReply("❌ No results found");
       }
 
       const track = result.tracks[0];
+
+      // 🔥 GET OR CREATE PLAYER (IMPORTANT FIX)
+      let player = client.kazagumo.players.get(interaction.guild.id);
+
+      if (!player) {
+        player = await client.kazagumo.createPlayer({
+          guildId: interaction.guild.id,
+          textId: interaction.channel.id,
+          voiceId: voiceChannel.id,
+          deaf: true,
+        });
+      }
+
+      // 🔥 CONNECT IF NOT CONNECTED (FIX FOR YOUR ERROR)
+      if (!player.voiceId) {
+        await player.connect();
+      }
 
       // 🔥 ADD TO QUEUE
       player.queue.add(track);
@@ -99,20 +71,21 @@ module.exports = {
       }
 
       return interaction.editReply({
-        content:
-          `🎵 Now playing: **${track.title}**`,
+        content: `🎵 Now playing: **${track.title}**`,
       });
 
     } catch (err) {
+      console.log("PLAY COMMAND ERROR:", err);
 
-      console.log(
-        "PLAY COMMAND ERROR:",
-        err
-      );
-
-      return interaction.editReply({
-        content: "❌ Music failed",
-      }).catch(() => {});
+      // safer response
+      if (interaction.deferred || interaction.replied) {
+        return interaction.editReply("❌ Music failed");
+      } else {
+        return interaction.reply({
+          content: "❌ Music failed",
+          ephemeral: true,
+        });
+      }
     }
   },
 };
