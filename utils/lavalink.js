@@ -1,5 +1,4 @@
-const { Kazagumo } = require("kazagumo");
-const { Connectors } = require("shoukaku");
+const { Kazagumo, Connectors } = require("kazagumo");
 
 module.exports = (client) => {
   const nodes = [
@@ -7,7 +6,7 @@ module.exports = (client) => {
       name: "main",
       url: process.env.LAVALINK_HOST,
       auth: process.env.LAVALINK_PASSWORD,
-      secure: process.env.LAVALINK_HOST.includes("443"),
+      secure: false,
     },
   ];
 
@@ -16,29 +15,20 @@ module.exports = (client) => {
       defaultSearchEngine: "youtube",
       send: (guildId, payload) => {
         const guild = client.guilds.cache.get(guildId);
-        if (!guild) return;
-        guild.shard?.send(payload);
+        if (guild) guild.shard.send(payload);
       },
     },
     new Connectors.DiscordJS(client),
     nodes
   );
 
-  // IMPORTANT FIX: proper logging
+  // 🔥 THIS tells you if Lavalink actually connects
   kazagumo.shoukaku.on("ready", (name) => {
-    console.log(`✅ Lavalink ready: ${name}`);
+    console.log("✅ Lavalink connected:", name);
   });
 
-  kazagumo.shoukaku.on("error", (name, error) => {
-    console.log(`❌ Lavalink error (${name}):`, error.message);
-  });
-
-  kazagumo.shoukaku.on("close", (name) => {
-    console.log(`⚠️ Lavalink closed: ${name}`);
-  });
-
-  kazagumo.shoukaku.on("disconnect", () => {
-    console.log(`⚠️ Lavalink disconnected`);
+  kazagumo.shoukaku.on("error", (name, err) => {
+    console.log("❌ Lavalink error:", err.message);
   });
 
   return kazagumo;
