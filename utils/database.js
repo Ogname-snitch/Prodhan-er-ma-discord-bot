@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 
+const perks = ["Workaholic", "Alcoholic", "Robber", "Beggar"];
+
 // CONNECT TO MONGODB
 mongoose.connect(process.env.MONGO_URI, {
   serverSelectionTimeoutMS: 5000,
@@ -43,15 +45,19 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+
+  // ⭐ PERK SYSTEM
+  perk: {
+    type: String,
+    default: "None",
+  },
 });
 
 // GET OR CREATE USER
-userSchema.statics.getUser = async function(userId) {
-
+userSchema.statics.getUser = async function (userId) {
   let user = await this.findOne({ userId });
 
   if (!user) {
-
     user = await this.create({
       userId,
       wallet: 0,
@@ -59,17 +65,14 @@ userSchema.statics.getUser = async function(userId) {
       lastWork: 0,
       lastBeg: 0,
       lastSteal: 0,
+      perk: "None",
     });
-
   }
 
   return user;
 };
 
 // MODEL
-const User = mongoose.model(
-  "User",
-  userSchema
-);
+const User = mongoose.model("User", userSchema);
 
 module.exports = User;

@@ -1,21 +1,10 @@
-const {
-  SlashCommandBuilder,
-} = require("discord.js");
-
+const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
 const cooldown = 15000;
 
 async function getUser(id) {
-  let user = await User.findOne({ userId: id });
-
-  if (!user) {
-    user = await User.create({
-      userId: id,
-    });
-  }
-
-  return user;
+  return await User.getUser(id);
 }
 
 module.exports = {
@@ -29,24 +18,24 @@ module.exports = {
     const now = Date.now();
 
     if (now - user.lastBeg < cooldown) {
-      const left = Math.ceil(
-        (cooldown - (now - user.lastBeg)) / 1000
-      );
-
-      return interaction.reply(
-        `⏳ Wait ${left} seconds`
-      );
+      const left = Math.ceil((cooldown - (now - user.lastBeg)) / 1000);
+      return interaction.reply(`⏳ Wait ${left} seconds`);
     }
 
-    const amount = Math.floor(Math.random() * 200);
+    let amount = Math.floor(Math.random() * 200);
+
+    // 🟣 PERK: BEGGAR (higher jackpot chance)
+    if (user.perk === "Beggar") {
+      if (Math.random() < 0.15) {
+        amount = 1000;
+      }
+    }
 
     user.wallet += amount;
     user.lastBeg = now;
 
     await user.save();
 
-    return interaction.reply(
-      `🥺 Someone gave you ${amount} coins`
-    );
+    return interaction.reply(`🥺 Someone gave you ${amount} coins`);
   },
 };
