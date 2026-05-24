@@ -2,7 +2,7 @@ const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
 const cooldown = 60000; // normal steal cooldown (1 min)
-const jailTime = 10 * 60 * 1000; // 10 minutes jail
+const jailTime = 100 * 60 * 1000; // 10 minutes jail
 
 async function getUser(id) {
   return await User.getUser(id);
