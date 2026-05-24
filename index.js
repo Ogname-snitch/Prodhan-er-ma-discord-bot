@@ -16,9 +16,6 @@ const {
   getVoiceConnection,
   VoiceConnectionStatus,
   entersState,
-  createAudioPlayer,
-  createAudioResource,
-  AudioPlayerStatus,
 } = require("@discordjs/voice");
 
 const client = new Client({
@@ -75,7 +72,7 @@ if (fs.existsSync(commandsPath)) {
   }
 }
 
-// ---------------- LAVALINK ----------------
+// ---------------- LAVALINK (SAFE FIX) ----------------
 let kazagumo = null;
 
 try {
@@ -92,80 +89,62 @@ try {
   console.log("⚠️ Lavalink error:", err.message);
 }
 
-// ---------------- VC KEEP ALIVE FIX (REAL FIX) ----------------
+// ---------------- VC STAY (STABLE 24/7 FIX) ----------------
 
-let connection = null;
-let player = null;
-
-function createSilentAudio() {
-  // 1-second silent audio buffer (prevents AFK disconnect)
-  const buffer = Buffer.from([0xF8, 0xFF, 0xFE]);
-  return createAudioResource(buffer, { inlineVolume: false });
-}
+let vcConnection = null;
+let reconnecting = false;
 
 async function joinVC() {
-  const guild = client.guilds.cache.get(process.env.GUILD_ID);
-  const channel = guild?.channels?.cache.get(process.env.CHANNEL_ID);
-
-  if (!guild || !channel) return;
-
-  if (getVoiceConnection(guild.id)) return;
-
-  connection = joinVoiceChannel({
-    channelId: channel.id,
-    guildId: guild.id,
-    adapterCreator: guild.voiceAdapterCreator,
-    selfDeaf: true, // 🔥 ALWAYS DEAFENED
-  });
-
-  console.log("🔊 Joined VC (deafened)");
-
   try {
-    await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
+    const guild = client.guilds.cache.get(process.env.GUILD_ID);
+    if (!guild) return;
+
+    const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
+    if (!channel) return;
+
+    const existing = getVoiceConnection(guild.id);
+    if (existing) {
+      vcConnection = existing;
+      return;
+    }
+
+    vcConnection = joinVoiceChannel({
+      channelId: channel.id,
+      guildId: guild.id,
+      adapterCreator: guild.voiceAdapterCreator,
+      selfDeaf: true, // always deafened
+    });
+
+    console.log("🔊 Joined VC (deafened)");
+
+    vcConnection.on(VoiceConnectionStatus.Disconnected, async () => {
+      if (reconnecting) return;
+      reconnecting = true;
+
+      console.log("⚠️ VC disconnected → retrying...");
+
+      setTimeout(() => {
+        reconnecting = false;
+        joinVC();
+      }, 5000);
+    });
+
+    vcConnection.on(VoiceConnectionStatus.Destroyed, () => {
+      console.log("❌ VC destroyed → rejoining...");
+      setTimeout(joinVC, 5000);
+    });
+
   } catch (err) {
-    console.log("❌ VC failed, retrying...");
+    console.log("VC error:", err.message);
     setTimeout(joinVC, 5000);
-    return;
   }
-
-  // create audio player (keeps VC alive)
-  player = createAudioPlayer();
-
-  player.on(AudioPlayerStatus.Idle, () => {
-    const resource = createSilentAudio();
-    player.play(resource);
-  });
-
-  connection.subscribe(player);
-
-  // start silent loop
-  player.play(createSilentAudio());
 }
 
-// auto-reconnect system
+// keep-alive heartbeat (lightweight, no spam)
 setInterval(() => {
   const conn = getVoiceConnection(process.env.GUILD_ID);
-
-  if (!conn) {
-    console.log("🔁 VC missing → reconnecting");
-    joinVC();
-  }
-}, 10000);
-
-// handle VC state crashes
-function setupVCEvents() {
-  if (!connection) return;
-
-  connection.on(VoiceConnectionStatus.Disconnected, () => {
-    console.log("⚠️ VC disconnected → reconnecting");
-    setTimeout(joinVC, 3000);
-  });
-
-  connection.on(VoiceConnectionStatus.Destroyed, () => {
-    console.log("❌ VC destroyed → reconnecting");
-    setTimeout(joinVC, 3000);
-  });
-}
+  if (!conn) joinVC();
+}, 15000);
 
 // ---------------- HANDLER ----------------
 try {
@@ -190,10 +169,7 @@ client.once(Events.ClientReady, () => {
     status: "online",
   });
 
-  setTimeout(() => {
-    joinVC();
-    setupVCEvents();
-  }, 5000);
+  setTimeout(joinVC, 5000);
 });
 
 // ---------------- SAFETY ----------------
