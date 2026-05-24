@@ -115,33 +115,45 @@ try {
   console.log("⚠️ Lavalink error:", err.message);
 }
 
-// ---------------- ✅ FIXED 24/7 SYSTEM (SAFE FOR MUSIC) ----------------
-// IMPORTANT: We do NOT force voice connection anymore
+// ---------------- SAFE 24/7 VC (KAZAGUMO ONLY) ----------------
 
-function keepAliveOnly() {
+async function keepPlayerAlive() {
   try {
     const guild = client.guilds.cache.get(process.env.GUILD_ID);
-    const channel = guild?.channels?.cache.get(process.env.CHANNEL_ID);
+    if (!guild) return;
 
-    if (!guild || !channel) return;
+    const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
+    if (!channel) return;
 
-    const kazagumo = client.kazagumo;
-    if (!kazagumo) return;
+    if (!client.kazagumo) return;
 
-    let player = kazagumo.players.get(guild.id);
+    let player = client.kazagumo.players.get(guild.id);
 
-    // ONLY create player if music system is NOT active
-    // (prevents breaking /play)
+    // create idle player if missing
     if (!player) {
-      // we do NOT force play audio anymore
-      // we just pre-join safely
-      console.log("🔊 VC idle check (safe mode)");
+      player = await client.kazagumo.createPlayer({
+        guildId: guild.id,
+        voiceId: channel.id,
+        textId: channel.id,
+        deaf: true,
+      });
+
+      console.log("🔊 24/7 VC player created");
+    }
+
+    // reconnect ONLY if disconnected
+    if (player.state === "DISCONNECTED") {
+      await player.connect();
+      console.log("🔁 VC reconnected safely");
     }
 
   } catch (err) {
-    console.log("VC keepalive error:", err.message);
+    console.log("❌ VC keep-alive error:", err.message);
   }
 }
+
+// run every 30 seconds (IMPORTANT: not spammy)
+setInterval(keepPlayerAlive, 30000);
 
 // run safe check every 30s (NOT aggressive)
 setInterval(keepAliveOnly, 30000);

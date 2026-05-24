@@ -13,7 +13,7 @@ module.exports = {
 
   async execute(interaction, client) {
     try {
-      // ❌ FIX: proper system check
+      // ❌ MUSIC SYSTEM CHECK
       if (!client.kazagumo) {
         return interaction.reply({
           content: "❌ Music system not ready",
@@ -34,18 +34,18 @@ module.exports = {
 
       const query = interaction.options.getString("song");
 
-      // 🔥 SEARCH FIRST
+      // 🔍 SEARCH TRACK
       const result = await client.kazagumo.search(query, {
         requester: interaction.user,
       });
 
-      if (!result || !result.tracks.length) {
+      if (!result || !result.tracks?.length) {
         return interaction.editReply("❌ No results found");
       }
 
       const track = result.tracks[0];
 
-      // 🔥 GET OR CREATE PLAYER (IMPORTANT FIX)
+      // 🎧 GET OR CREATE PLAYER (SAFE FIX)
       let player = client.kazagumo.players.get(interaction.guild.id);
 
       if (!player) {
@@ -55,17 +55,26 @@ module.exports = {
           voiceId: voiceChannel.id,
           deaf: true,
         });
+
+        console.log("🔊 Player created");
       }
 
-      // 🔥 CONNECT IF NOT CONNECTED (FIX FOR YOUR ERROR)
-      if (!player.voiceId) {
-        await player.connect();
+      // 🔥 IMPORTANT FIX:
+      // DO NOT manually force connect() — Kazagumo handles it internally
+
+      // If player exists but not connected, fix safely
+      if (player.state === "DISCONNECTED") {
+        try {
+          await player.connect();
+        } catch (err) {
+          console.log("⚠️ Player reconnect failed:", err.message);
+        }
       }
 
-      // 🔥 ADD TO QUEUE
+      // ➕ ADD TO QUEUE
       player.queue.add(track);
 
-      // 🔥 PLAY
+      // ▶️ PLAY IF IDLE
       if (!player.playing && !player.paused) {
         await player.play();
       }
@@ -77,15 +86,14 @@ module.exports = {
     } catch (err) {
       console.log("PLAY COMMAND ERROR:", err);
 
-      // safer response
       if (interaction.deferred || interaction.replied) {
         return interaction.editReply("❌ Music failed");
-      } else {
-        return interaction.reply({
-          content: "❌ Music failed",
-          ephemeral: true,
-        });
       }
+
+      return interaction.reply({
+        content: "❌ Music failed",
+        ephemeral: true,
+      });
     }
   },
 };
