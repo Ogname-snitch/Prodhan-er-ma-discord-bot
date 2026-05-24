@@ -27,7 +27,7 @@ module.exports = {
 
     // 🟢 PERK: WORKAHOLIC (+30%)
     if (user.perk === "Workaholic") {
-      amount = Math.floor(amount * 1.3);
+      amount = Math.floor(amount * 2);
     }
 
     user.wallet += amount;
