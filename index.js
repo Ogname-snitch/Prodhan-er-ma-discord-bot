@@ -11,6 +11,12 @@ const {
   Events,
 } = require("discord.js");
 
+const {
+  joinVoiceChannel,
+  getVoiceConnection,
+  VoiceConnectionStatus,
+} = require("@discordjs/voice");
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -32,7 +38,7 @@ app.listen(process.env.PORT || 3000, () => {
   console.log("Web server running");
 });
 
-// ---------------- COMMAND LOADER (FIXED) ----------------
+// ---------------- COMMAND LOADER ----------------
 const commandsPath = path.join(__dirname, "commands");
 
 if (fs.existsSync(commandsPath)) {
@@ -52,7 +58,7 @@ if (fs.existsSync(commandsPath)) {
         const command = require(filePath);
 
         if (!command?.data?.name) {
-          console.log(`❌ Invalid command structure: ${file}`);
+          console.log(`❌ Invalid command: ${file}`);
           continue;
         }
 
@@ -63,9 +69,60 @@ if (fs.existsSync(commandsPath)) {
       }
     }
   }
-} else {
-  console.log("❌ commands folder not found");
 }
+
+// ---------------- VC 24/7 FIX (MAIN PART) ----------------
+
+function keepVCAlive() {
+  const guildId = process.env.GUILD_ID;
+  const channelId = process.env.CHANNEL_ID;
+
+  if (!guildId || !channelId) {
+    console.log("❌ Missing GUILD_ID or CHANNEL_ID");
+    return;
+  }
+
+  const guild = client.guilds.cache.get(guildId);
+  if (!guild) return;
+
+  const channel = guild.channels.cache.get(channelId);
+  if (!channel) return;
+
+  const existing = getVoiceConnection(guildId);
+
+  if (existing) return; // already connected
+
+  const connection = joinVoiceChannel({
+    channelId: channel.id,
+    guildId: guild.id,
+    adapterCreator: guild.voiceAdapterCreator,
+    selfDeaf: false,
+    selfMute: false,
+  });
+
+  console.log("🔊 Joined VC");
+
+  // 🔥 auto reconnect if dropped
+  connection.on(VoiceConnectionStatus.Disconnected, () => {
+    console.log("⚠️ VC disconnected → reconnecting...");
+    setTimeout(keepVCAlive, 3000);
+  });
+
+  connection.on(VoiceConnectionStatus.Destroyed, () => {
+    console.log("❌ VC destroyed → reconnecting...");
+    setTimeout(keepVCAlive, 3000);
+  });
+}
+
+// heartbeat system (prevents idle kick)
+setInterval(() => {
+  const connection = getVoiceConnection(process.env.GUILD_ID);
+
+  if (!connection) {
+    console.log("🔁 VC missing → reconnecting");
+    keepVCAlive();
+  }
+}, 10000);
 
 // ---------------- LAVALINK ----------------
 let kazagumo = null;
@@ -84,19 +141,8 @@ try {
   console.log("⚠️ Lavalink error:", err.message);
 }
 
-// ---------------- VC STAY ----------------
-try {
-  const vcPath = path.join(__dirname, "utils", "vcStay.js");
-
-  if (fs.existsSync(vcPath)) {
-    require(vcPath)(client);
-    console.log("✅ vcStay loaded");
-  } else {
-    console.log("⚠️ vcStay missing");
-  }
-} catch (err) {
-  console.log("⚠️ vcStay error:", err.message);
-}
+// ---------------- VC STAY MODULE SKIP ----------------
+console.log("ℹ️ Using built-in VC system (vcStay disabled)");
 
 // ---------------- HANDLER ----------------
 try {
@@ -120,6 +166,9 @@ client.once(Events.ClientReady, () => {
     activities: [{ name: "beating prodhan" }],
     status: "online",
   });
+
+  // start VC after login
+  setTimeout(keepVCAlive, 5000);
 });
 
 // ---------------- SAFETY ----------------
