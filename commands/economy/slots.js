@@ -40,7 +40,7 @@ module.exports = {
 
     // 🟡 PERK: ALCOHOLIC (better odds)
     if (user.perk === "Alcoholic") {
-      if (multi === 0 && Math.random() < 0.5) {
+      if (multi === 0 && Math.random() < 0.35) {
         multi = 2;
       }
     }
