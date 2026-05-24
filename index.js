@@ -20,7 +20,7 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// EXPRESS
+// ---------------- EXPRESS ----------------
 const app = express();
 
 app.get("/", (req, res) => {
@@ -31,33 +31,51 @@ app.listen(process.env.PORT || 3000, () => {
   console.log("Web server running");
 });
 
-// LOAD COMMANDS
-const folders = fs.readdirSync("./commands");
+// ---------------- LOAD COMMANDS ----------------
+if (fs.existsSync("./commands")) {
+  const folders = fs.readdirSync("./commands");
 
-for (const folder of folders) {
-  const files = fs
-    .readdirSync(`./commands/${folder}`)
-    .filter(f => f.endsWith(".js"));
+  for (const folder of folders) {
+    const files = fs
+      .readdirSync(`./commands/${folder}`)
+      .filter(f => f.endsWith(".js"));
 
-  for (const file of files) {
-    const command = require(`./commands/${folder}/${file}`);
-
-    client.commands.set(command.data.name, command);
+    for (const file of files) {
+      const command = require(`./commands/${folder}/${file}`);
+      client.commands.set(command.data.name, command);
+    }
   }
 }
 
-// LAVALINK
-const kazagumo = require("./utils/lavalink")(client);
+// ---------------- LAVALINK ----------------
+let kazagumo = null;
 
-client.kazagumo = kazagumo;
+try {
+  kazagumo = require("./utils/lavalink")(client);
+  client.kazagumo = kazagumo;
+} catch (err) {
+  console.log("⚠️ Lavalink not loaded:", err.message);
+}
 
-// VC STAY
-const stayInVC = require("./utils/vcStay");
+// ---------------- VC STAY (SAFE FIX) ----------------
+try {
+  if (fs.existsSync("./utils/vcStay.js")) {
+    require("./utils/vcStay")(client);
+  } else {
+    console.log("⚠️ vcStay.js missing — skipping VC auto join");
+  }
+} catch (err) {
+  console.log("⚠️ vcStay error:", err.message);
+}
 
-// EVENTS
-require("./handlers/interactionHandler")(client);
+// ---------------- HANDLERS ----------------
+try {
+  require("./handlers/interactionHandler")(client);
+} catch (err) {
+  console.log("⚠️ interactionHandler missing:", err.message);
+}
 
-// READY
+// ---------------- READY ----------------
 client.once(Events.ClientReady, () => {
   console.log(`Logged in as ${client.user.tag}`);
 
@@ -67,8 +85,13 @@ client.once(Events.ClientReady, () => {
   });
 });
 
-// ERROR PREVENTION
-process.on("unhandledRejection", console.log);
-process.on("uncaughtException", console.log);
+// ---------------- ERROR SAFETY ----------------
+process.on("unhandledRejection", (err) => {
+  console.log("Unhandled Rejection:", err);
+});
+
+process.on("uncaughtException", (err) => {
+  console.log("Uncaught Exception:", err);
+});
 
 client.login(process.env.TOKEN);
