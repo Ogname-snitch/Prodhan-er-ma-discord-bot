@@ -23,11 +23,24 @@ for (const folder of folders) {
   const files = fs.readdirSync(folderPath).filter(file => file.endsWith(".js"));
 
   for (const file of files) {
-    try {
-      const command = require(path.join(folderPath, file));
+    const filePath = path.join(folderPath, file);
 
-      if (!command?.data) {
-        console.log(`⚠️ Skipped invalid command: ${file}`);
+    try {
+      const command = require(filePath);
+
+      // 🔥 EXTRA DEBUG (IMPORTANT FOR /play ISSUE)
+      if (!command) {
+        console.log(`❌ Empty export: ${file}`);
+        continue;
+      }
+
+      if (!command.data) {
+        console.log(`⚠️ Missing "data" in command: ${file}`);
+        continue;
+      }
+
+      if (!command.data.name) {
+        console.log(`⚠️ Missing name in command: ${file}`);
         continue;
       }
 
@@ -38,6 +51,12 @@ for (const folder of folders) {
     }
   }
 }
+
+// 🔥 DEBUG FINAL OUTPUT (THIS IS KEY)
+console.log("=================================");
+console.log("TOTAL COMMANDS LOADED:", commands.length);
+console.log("COMMAND LIST:", commands.map(c => c.name));
+console.log("=================================");
 
 // 🔥 REGISTER COMMANDS TO DISCORD
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
