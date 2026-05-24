@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 
+// PERKS LIST (kept for reference / future use)
 const perks = ["Workaholic", "Alcoholic", "Robber", "Beggar"];
 
 // CONNECT TO MONGODB
@@ -51,6 +52,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: "None",
   },
+
+  // ⭐ NEW: tracks if first perk is claimed
+  perkClaimed: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 // GET OR CREATE USER
@@ -66,6 +73,7 @@ userSchema.statics.getUser = async function (userId) {
       lastBeg: 0,
       lastSteal: 0,
       perk: "None",
+      perkClaimed: false, // ⭐ IMPORTANT FIX
     });
   }
 

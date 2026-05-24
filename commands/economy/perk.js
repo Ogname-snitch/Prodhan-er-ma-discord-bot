@@ -3,30 +3,51 @@ const User = require("../../utils/database");
 
 const perks = ["Workaholic", "Alcoholic", "Robber", "Beggar"];
 
+async function getUser(id) {
+  return await User.getUser(id);
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("perk")
-    .setDescription("🎁 Get or reroll your perk (50k coins)"),
+    .setDescription("🎲 Get or reroll your perk (first time free, then 50k coins)"),
 
   async execute(interaction) {
-    const user = await User.getUser(interaction.user.id);
+    const user = await getUser(interaction.user.id);
 
-    // if user already has perk → reroll cost
-    if (user.perk) {
-      if (user.wallet < 50000) {
-        return interaction.reply("❌ You need 50,000 coins to reroll.");
-      }
+    const COST = 50000;
 
-      user.wallet -= 50000;
+    // 🎁 FIRST TIME FREE
+    if (!user.perkClaimed) {
+      const random = perks[Math.floor(Math.random() * perks.length)];
+
+      user.perk = random;
+      user.perkClaimed = true;
+
+      await user.save();
+
+      return interaction.reply(
+        `🎉 You got your first perk for FREE!\n✨ **${random}**`
+      );
     }
 
-    const newPerk =
-      perks[Math.floor(Math.random() * perks.length)];
+    // 💰 CHECK BALANCE FOR REROLL
+    if (user.wallet < COST) {
+      return interaction.reply(
+        `❌ You need ${COST} coins to reroll your perk`
+      );
+    }
 
+    // 💸 TAKE MONEY
+    user.wallet -= COST;
+
+    const newPerk = perks[Math.floor(Math.random() * perks.length)];
     user.perk = newPerk;
 
     await user.save();
 
-    return interaction.reply(`🎁 You got perk: **${newPerk}**`);
+    return interaction.reply(
+      `🎲 You rerolled your perk for 50,000 coins!\n✨ New perk: **${newPerk}**`
+    );
   },
 };
