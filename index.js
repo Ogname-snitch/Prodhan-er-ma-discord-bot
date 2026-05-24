@@ -32,79 +32,81 @@ app.listen(process.env.PORT || 3000, () => {
   console.log("Web server running");
 });
 
-// ---------------- LOAD COMMANDS ----------------
-try {
-  if (fs.existsSync("./commands")) {
-    const folders = fs.readdirSync("./commands");
+// ---------------- COMMAND LOADER (FIXED) ----------------
+const commandsPath = path.join(__dirname, "commands");
 
-    for (const folder of folders) {
-      const folderPath = `./commands/${folder}`;
+if (fs.existsSync(commandsPath)) {
+  const folders = fs.readdirSync(commandsPath);
 
-      if (!fs.existsSync(folderPath)) continue;
+  for (const folder of folders) {
+    const folderPath = path.join(commandsPath, folder);
 
-      const files = fs
-        .readdirSync(folderPath)
-        .filter((f) => f.endsWith(".js"));
+    if (!fs.existsSync(folderPath)) continue;
 
-      for (const file of files) {
-        const filePath = path.join(folderPath, file);
+    const files = fs.readdirSync(folderPath).filter(f => f.endsWith(".js"));
 
-        try {
-          const command = require(filePath);
+    for (const file of files) {
+      const filePath = path.join(folderPath, file);
 
-          if (command?.data?.name) {
-            client.commands.set(command.data.name, command);
-          }
-        } catch (err) {
-          console.log(`❌ Failed loading command ${file}:`, err.message);
+      try {
+        const command = require(filePath);
+
+        if (!command?.data?.name) {
+          console.log(`❌ Invalid command structure: ${file}`);
+          continue;
         }
+
+        client.commands.set(command.data.name, command);
+        console.log(`✅ Loaded: ${file}`);
+      } catch (err) {
+        console.log(`❌ Failed loading ${file}:`, err.message);
       }
     }
   }
-} catch (err) {
-  console.log("❌ Command loader error:", err.message);
+} else {
+  console.log("❌ commands folder not found");
 }
 
 // ---------------- LAVALINK ----------------
 let kazagumo = null;
 
 try {
-  const lavalinkPath = "./utils/lavalink.js";
+  const lavalinkPath = path.join(__dirname, "utils", "lavalink.js");
 
   if (fs.existsSync(lavalinkPath)) {
     kazagumo = require(lavalinkPath)(client);
     client.kazagumo = kazagumo;
     console.log("✅ Lavalink loaded");
   } else {
-    console.log("⚠️ lavalink.js not found, skipping music system");
+    console.log("⚠️ Lavalink missing");
   }
 } catch (err) {
   console.log("⚠️ Lavalink error:", err.message);
 }
 
-// ---------------- VC STAY (SAFE FIX) ----------------
+// ---------------- VC STAY ----------------
 try {
-  const vcPath = "./utils/vcStay.js";
+  const vcPath = path.join(__dirname, "utils", "vcStay.js");
 
   if (fs.existsSync(vcPath)) {
     require(vcPath)(client);
     console.log("✅ vcStay loaded");
   } else {
-    console.log("⚠️ vcStay.js missing — skipping auto VC join");
+    console.log("⚠️ vcStay missing");
   }
 } catch (err) {
   console.log("⚠️ vcStay error:", err.message);
 }
 
-// ---------------- HANDLERS ----------------
+// ---------------- HANDLER ----------------
 try {
-  const handlerPath = "./handlers/interactionHandler.js";
+  const handlerPath = path.join(__dirname, "handlers", "interactionHandler.js");
 
   if (fs.existsSync(handlerPath)) {
     require(handlerPath)(client);
-    console.log("✅ interaction handler loaded");
+    console.log("✅ handler loaded");
   } else {
-    console.log("⚠️ interactionHandler missing");
+    console.log("⚠️ handler missing");
   }
 } catch (err) {
   console.log("⚠️ handler error:", err.message);
@@ -120,13 +122,8 @@ client.once(Events.ClientReady, () => {
   });
 });
 
-// ---------------- ERROR SAFETY ----------------
-process.on("unhandledRejection", (err) => {
-  console.log("Unhandled Rejection:", err);
-});
-
-process.on("uncaughtException", (err) => {
-  console.log("Uncaught Exception:", err);
-});
+// ---------------- SAFETY ----------------
+process.on("unhandledRejection", console.log);
+process.on("uncaughtException", console.log);
 
 client.login(process.env.TOKEN);
