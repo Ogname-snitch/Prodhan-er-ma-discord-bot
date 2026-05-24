@@ -11,13 +11,6 @@ const {
   Events,
 } = require("discord.js");
 
-const {
-  joinVoiceChannel,
-  getVoiceConnection,
-  VoiceConnectionStatus,
-  entersState,
-} = require("@discordjs/voice");
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -79,7 +72,7 @@ if (fs.existsSync(commandsPath)) {
   console.log("❌ Commands folder missing");
 }
 
-// ---------------- LAVALINK (FULL FIX) ----------------
+// ---------------- LAVALINK (UNCHANGED) ----------------
 let kazagumo = null;
 
 try {
@@ -97,7 +90,6 @@ try {
 
       console.log("✅ Lavalink loaded");
 
-      // Lavalink debug logs
       if (kazagumo.shoukaku) {
         kazagumo.shoukaku.on("ready", (name) => {
           console.log(`✅ Lavalink node ready: ${name}`);
@@ -108,9 +100,7 @@ try {
         });
 
         kazagumo.shoukaku.on("close", (name, code, reason) => {
-          console.log(
-            `⚠️ Lavalink node closed (${name}) Code:${code} Reason:${reason}`
-          );
+          console.log(`⚠️ Lavalink node closed (${name}) Code:${code} Reason:${reason}`);
         });
 
         kazagumo.shoukaku.on("disconnect", (name) => {
@@ -131,108 +121,52 @@ try {
   console.log("⚠️ Lavalink error:", err.message);
 }
 
-// ---------------- VC STAY (24/7 FIX) ----------------
+// ---------------- 24/7 VC SYSTEM (KAZAGUMO SAFE) ----------------
 
-let vcConnection = null;
-let reconnecting = false;
-
-async function joinVC() {
+const stayVC = async () => {
   try {
-    const guild = client.guilds.cache.get(
-      process.env.GUILD_ID
-    );
+    const guild = client.guilds.cache.get(process.env.GUILD_ID);
+    if (!guild) return;
 
-    if (!guild) {
-      console.log("❌ Guild not found");
+    const channel = guild.channels.cache.get(process.env.CHANNEL_ID);
+    if (!channel) return;
+
+    const kazagumo = client.kazagumo;
+    if (!kazagumo) {
+      console.log("❌ Kazagumo not ready for VC stay");
       return;
     }
 
-    const channel = guild.channels.cache.get(
-      process.env.CHANNEL_ID
-    );
+    let player = kazagumo.players.get(guild.id);
 
-    if (!channel) {
-      console.log("❌ Voice channel not found");
-      return;
+    // If no player exists → create idle player
+    if (!player) {
+      player = await kazagumo.createPlayer({
+        guildId: guild.id,
+        voiceId: channel.id,
+        textId: channel.id,
+        deaf: true,
+      });
+
+      console.log("🔊 24/7 VC player created");
     }
 
-    const existing = getVoiceConnection(guild.id);
-
-    if (existing) {
-      vcConnection = existing;
-      return;
+    // If disconnected → reconnect
+    if (player.state === "DISCONNECTED") {
+      await player.connect();
+      console.log("🔁 VC reconnected");
     }
-
-    vcConnection = joinVoiceChannel({
-      channelId: channel.id,
-      guildId: guild.id,
-      adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf: true,
-      selfMute: false,
-    });
-
-    await entersState(
-      vcConnection,
-      VoiceConnectionStatus.Ready,
-      30000
-    );
-
-    console.log("🔊 Joined VC permanently");
-
-    vcConnection.on(
-      VoiceConnectionStatus.Disconnected,
-      async () => {
-        if (reconnecting) return;
-
-        reconnecting = true;
-
-        console.log("⚠️ VC disconnected");
-
-        setTimeout(async () => {
-          reconnecting = false;
-
-          try {
-            vcConnection.destroy();
-          } catch {}
-
-          joinVC();
-        }, 5000);
-      }
-    );
-
-    vcConnection.on(
-      VoiceConnectionStatus.Destroyed,
-      () => {
-        console.log("❌ VC destroyed");
-
-        setTimeout(() => {
-          joinVC();
-        }, 5000);
-      }
-    );
 
   } catch (err) {
-    console.log("VC error:", err.message);
-
-    setTimeout(() => {
-      joinVC();
-    }, 5000);
+    console.log("❌ 24/7 VC error:", err.message);
   }
-}
+};
 
-// heartbeat
-setInterval(() => {
-  try {
-    const conn = getVoiceConnection(
-      process.env.GUILD_ID
-    );
+// run every 20 seconds (safe, not spammy)
+setInterval(stayVC, 20000);
 
-    if (!conn) {
-      console.log("🔁 VC missing → reconnecting");
-      joinVC();
-    }
-  } catch {}
-}, 15000);
+// ---------------- ❌ REMOVED VC STAY SYSTEM ----------------
+// (This was causing ALL music issues with Kazagumo)
 
 // ---------------- HANDLER ----------------
 try {
@@ -259,17 +193,10 @@ client.once(Events.ClientReady, async () => {
 
   client.user.setPresence({
     activities: [
-      {
-        name: "beating prodhan",
-      },
+      { name: "beating prodhan" },
     ],
     status: "online",
   });
-
-  // join VC after startup
-  setTimeout(() => {
-    joinVC();
-  }, 5000);
 });
 
 // ---------------- SAFETY ----------------

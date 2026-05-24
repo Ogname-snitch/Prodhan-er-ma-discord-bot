@@ -2,6 +2,10 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 
+const {
+  getVoiceConnection,
+} = require("@discordjs/voice");
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("play")
@@ -17,30 +21,36 @@ module.exports = {
 
     try {
 
-      // 🔥 CHECK NODE
-      if (!client.kazagumo?.shoukaku?.nodes?.size) {
+      if (!client.kazagumo) {
         return interaction.reply({
-          content: "❌ Lavalink node not connected",
+          content: "❌ Music system not ready",
           ephemeral: true,
         });
       }
 
-      const memberChannel =
+      const voiceChannel =
         interaction.member.voice.channel;
 
-      if (!memberChannel) {
+      if (!voiceChannel) {
         return interaction.reply({
-          content: "❌ Join a voice channel first",
+          content: "❌ Join a VC first",
           ephemeral: true,
         });
       }
 
       await interaction.deferReply();
 
-      const query =
-        interaction.options.getString("song");
+      // 🔥 FORCE VC CONNECTION
+      const existing =
+        getVoiceConnection(interaction.guild.id);
 
-      // 🔥 CREATE PLAYER
+      if (!existing) {
+        return interaction.editReply(
+          "❌ Bot VC connection missing"
+        );
+      }
+
+      // 🔥 GET OR CREATE PLAYER
       let player =
         client.kazagumo.players.get(
           interaction.guild.id
@@ -52,12 +62,15 @@ module.exports = {
           await client.kazagumo.createPlayer({
             guildId: interaction.guild.id,
             textId: interaction.channel.id,
-            voiceId: memberChannel.id,
+            voiceId: voiceChannel.id,
             deaf: true,
           });
       }
 
       // 🔥 SEARCH
+      const query =
+        interaction.options.getString("song");
+
       const result =
         await client.kazagumo.search(
           query,
@@ -80,9 +93,9 @@ module.exports = {
       // 🔥 ADD TO QUEUE
       player.queue.add(track);
 
-      // 🔥 START PLAYING
+      // 🔥 PLAY
       if (!player.playing && !player.paused) {
-        player.play();
+        await player.play();
       }
 
       return interaction.editReply({
@@ -92,21 +105,14 @@ module.exports = {
 
     } catch (err) {
 
-      console.log("PLAY COMMAND ERROR:", err);
+      console.log(
+        "PLAY COMMAND ERROR:",
+        err
+      );
 
-      if (interaction.deferred || interaction.replied) {
-
-        return interaction.editReply({
-          content: "❌ Music failed",
-        }).catch(() => {});
-
-      } else {
-
-        return interaction.reply({
-          content: "❌ Music failed",
-          ephemeral: true,
-        }).catch(() => {});
-      }
+      return interaction.editReply({
+        content: "❌ Music failed",
+      }).catch(() => {});
     }
   },
 };
