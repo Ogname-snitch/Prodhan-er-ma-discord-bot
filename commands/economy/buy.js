@@ -9,6 +9,7 @@ const items = {
   "baking equipment": 5000,
   "gun": 10000,
   "rifle": 25000,
+  "fishing rod": 5000,
   "streaming equipment": 20000,
   "games": 10000,
   "ski masks": 100,
@@ -27,6 +28,7 @@ module.exports = {
           { name: "Baking Equipment", value: "baking equipment" },
           { name: "Gun", value: "gun" },
           { name: "Rifle", value: "rifle" },
+          { name: "Fishing Rod", value: "fishing rod" },
           { name: "Streaming Equipment", value: "streaming equipment" },
           { name: "Games", value: "games" },
           { name: "Ski Masks", value: "ski masks" }
@@ -56,7 +58,7 @@ module.exports = {
     // 💸 deduct money
     user.wallet -= price;
 
-    // 🎒 FIXED INVENTORY SYSTEM (ARRAY BASED)
+    // 🎒 INVENTORY SYSTEM
     const inv = user.inventory || [];
 
     const existing = inv.find(i => i.item === item);

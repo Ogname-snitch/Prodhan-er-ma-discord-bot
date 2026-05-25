@@ -17,7 +17,7 @@ module.exports = {
 `💻 **Baking Equipment** — 5,000 coins
 🔫 **Gun** — 10,000 coins
 🪖 **Rifle** — 25,000 coins
-🎣 **Fishing Rod** — 5,000 - 50,000 coins
+🎣 **Fishing Rod** — 5,000 coins
 📹 **Streaming Equipment** — 20,000 coins
 🎮 **Games** — 10,000 coins
 🎭 **Ski Masks** — 100 coins`
