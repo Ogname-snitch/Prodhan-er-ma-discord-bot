@@ -53,16 +53,30 @@ const userSchema = new mongoose.Schema({
     default: "None",
   },
 
-  // ⭐ NEW: jail system (FIXES YOUR ISSUE)
+  // ⭐ JAIL SYSTEM
   jailUntil: {
     type: Number,
     default: 0,
   },
 
-  // ⭐ NEW: tracks if user already used free perk
+  // ⭐ FREE PERK TRACKER
   perkClaimed: {
     type: Boolean,
     default: false,
+  },
+
+  // ⭐ NEW: PERSISTENT INVENTORY SYSTEM
+  inventory: {
+    type: [
+      {
+        item: String,
+        amount: {
+          type: Number,
+          default: 1,
+        },
+      },
+    ],
+    default: [],
   },
 });
 
@@ -81,6 +95,7 @@ userSchema.statics.getUser = async function (userId) {
       perk: "None",
       jailUntil: 0,
       perkClaimed: false,
+      inventory: [], // ⭐ IMPORTANT
     });
   }
 
