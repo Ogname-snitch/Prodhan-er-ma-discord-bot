@@ -10,6 +10,7 @@ async function getUser(id) {
   if (!user) {
     user = await User.create({
       userId: id,
+      perk: "None",
     });
   }
 
@@ -19,13 +20,28 @@ async function getUser(id) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("balance")
-    .setDescription("💰 Check balance"),
+    .setDescription("💰 Check balance")
+    .addUserOption(option =>
+      option
+        .setName("user")
+        .setDescription("User to check")
+        .setRequired(false)
+    ),
 
   async execute(interaction) {
-    const user = await getUser(interaction.user.id);
+
+    const target =
+      interaction.options.getUser("user") ||
+      interaction.user;
+
+    const user =
+      await getUser(target.id);
+
+    const perk =
+      user.perk || "None";
 
     return interaction.reply(
-      `💰 You have ${user.wallet} coins`
+      `💰 ${target.username} has ${user.wallet} coins\n⭐ Perk: ${perk}`
     );
   },
 };
