@@ -47,7 +47,7 @@ module.exports = {
     }
 
     // 🎲 FAIL CHANCE SYSTEM
-    let failChance = 0.30;
+    let failChance = 0.50;
 
     // 🟣 PERK: Robber reduces fail chance
     if (user.perk === "Robber") {
