@@ -4,7 +4,7 @@ const {
 
 const User = require("../../utils/database");
 
-// 🛒 SHOP ITEMS
+// 🛒 SHOP PRICES
 const items = {
   "baking equipment": 5000,
   "gun": 10000,
@@ -21,7 +21,7 @@ module.exports = {
     .addStringOption(option =>
       option
         .setName("item")
-        .setDescription("Item to buy")
+        .setDescription("Choose an item")
         .setRequired(true)
         .addChoices(
           { name: "Baking Equipment", value: "baking equipment" },
@@ -44,9 +44,7 @@ module.exports = {
       await User.getUser(interaction.user.id);
 
     if (!price) {
-      return interaction.reply(
-        "❌ Invalid item"
-      );
+      return interaction.reply("❌ Invalid item");
     }
 
     if (user.wallet < price) {
@@ -55,21 +53,24 @@ module.exports = {
       );
     }
 
-    // 💸 remove money
+    // 💸 deduct money
     user.wallet -= price;
 
-    // 🎒 inventory system
-    if (!user.inventory) {
-      user.inventory = {};
+    // 🎒 FIXED INVENTORY SYSTEM (ARRAY BASED)
+    const inv = user.inventory || [];
+
+    const existing = inv.find(i => i.item === item);
+
+    if (existing) {
+      existing.amount += 1;
+    } else {
+      inv.push({
+        item,
+        amount: 1,
+      });
     }
 
-    if (!user.inventory[item]) {
-      user.inventory[item] = 0;
-    }
-
-    user.inventory[item] += 1;
-
-    // IMPORTANT
+    user.inventory = inv;
     user.markModified("inventory");
 
     await user.save();

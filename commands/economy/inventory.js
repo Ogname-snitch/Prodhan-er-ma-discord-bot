@@ -1,55 +1,82 @@
 const {
   SlashCommandBuilder,
-  EmbedBuilder,
 } = require("discord.js");
 
 const User = require("../../utils/database");
 
+// 🛒 SHOP PRICES
+const items = {
+  "baking equipment": 5000,
+  "gun": 10000,
+  "rifle": 25000,
+  "streaming equipment": 20000,
+  "games": 10000,
+  "ski masks": 100,
+};
+
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("inventory")
-    .setDescription("🎒 View someone's inventory")
-    .addUserOption(option =>
+    .setName("buy")
+    .setDescription("🛒 Buy an item")
+    .addStringOption(option =>
       option
-        .setName("user")
-        .setDescription("User to check")
-        .setRequired(false)
+        .setName("item")
+        .setDescription("Choose an item")
+        .setRequired(true)
+        .addChoices(
+          { name: "Baking Equipment", value: "baking equipment" },
+          { name: "Gun", value: "gun" },
+          { name: "Rifle", value: "rifle" },
+          { name: "Streaming Equipment", value: "streaming equipment" },
+          { name: "Games", value: "games" },
+          { name: "Ski Masks", value: "ski masks" }
+        )
     ),
 
   async execute(interaction) {
 
-    const target =
-      interaction.options.getUser("user") ||
-      interaction.user;
+    const item =
+      interaction.options.getString("item");
+
+    const price = items[item];
 
     const user =
-      await User.getUser(target.id);
+      await User.getUser(interaction.user.id);
 
-    const inventory =
-      user.inventory || {};
+    if (!price) {
+      return interaction.reply("❌ Invalid item");
+    }
 
-    const items =
-      Object.entries(inventory);
-
-    if (!items.length) {
+    if (user.wallet < price) {
       return interaction.reply(
-        `🎒 ${target.username} has no items`
+        `❌ You need ${price} coins`
       );
     }
 
-    const text = items
-      .map(([item, amount]) =>
-        `• ${item} x${amount}`
-      )
-      .join("\n");
+    // 💸 deduct money
+    user.wallet -= price;
 
-    const embed = new EmbedBuilder()
-      .setTitle(`🎒 ${target.username}'s Inventory`)
-      .setDescription(text)
-      .setColor("Blue");
+    // 🎒 FIXED INVENTORY SYSTEM (ARRAY BASED)
+    const inv = user.inventory || [];
 
-    return interaction.reply({
-      embeds: [embed],
-    });
+    const existing = inv.find(i => i.item === item);
+
+    if (existing) {
+      existing.amount += 1;
+    } else {
+      inv.push({
+        item,
+        amount: 1,
+      });
+    }
+
+    user.inventory = inv;
+    user.markModified("inventory");
+
+    await user.save();
+
+    return interaction.reply(
+      `🛒 You bought **${item}** for ${price} coins`
+    );
   },
 };
