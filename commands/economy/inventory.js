@@ -1,82 +1,59 @@
-const {
-  SlashCommandBuilder,
-} = require("discord.js");
-
+const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const User = require("../../utils/database");
-
-// 🛒 SHOP PRICES
-const items = {
-  "baking equipment": 5000,
-  "gun": 10000,
-  "rifle": 25000,
-  "streaming equipment": 20000,
-  "games": 10000,
-  "ski masks": 100,
-};
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("buy")
-    .setDescription("🛒 Buy an item")
-    .addStringOption(option =>
+    .setName("inventory")
+    .setDescription("🎒 View inventory")
+    .addUserOption(option =>
       option
-        .setName("item")
-        .setDescription("Choose an item")
-        .setRequired(true)
-        .addChoices(
-          { name: "Baking Equipment", value: "baking equipment" },
-          { name: "Gun", value: "gun" },
-          { name: "Rifle", value: "rifle" },
-          { name: "Streaming Equipment", value: "streaming equipment" },
-          { name: "Games", value: "games" },
-          { name: "Ski Masks", value: "ski masks" }
-        )
+        .setName("user")
+        .setDescription("User")
+        .setRequired(false)
     ),
 
   async execute(interaction) {
+    try {
+      const target =
+        interaction.options.getUser("user") || interaction.user;
 
-    const item =
-      interaction.options.getString("item");
+      const user = await User.findOne({ userId: target.id });
 
-    const price = items[item];
+      if (!user) {
+        return interaction.reply({
+          content: "🎒 No data found for this user",
+          ephemeral: true,
+        });
+      }
 
-    const user =
-      await User.getUser(interaction.user.id);
+      const inv = user.inventory || [];
 
-    if (!price) {
-      return interaction.reply("❌ Invalid item");
-    }
+      if (inv.length === 0) {
+        return interaction.reply(
+          `🎒 ${target.username} has no items`
+        );
+      }
 
-    if (user.wallet < price) {
-      return interaction.reply(
-        `❌ You need ${price} coins`
-      );
-    }
+      const text = inv
+        .map(i => `• ${i.item} x${i.amount}`)
+        .join("\n");
 
-    // 💸 deduct money
-    user.wallet -= price;
+      const embed = new EmbedBuilder()
+        .setTitle(`🎒 ${target.username}'s Inventory`)
+        .setDescription(text)
+        .setColor("Blue");
 
-    // 🎒 FIXED INVENTORY SYSTEM (ARRAY BASED)
-    const inv = user.inventory || [];
+      return interaction.reply({
+        embeds: [embed],
+      });
 
-    const existing = inv.find(i => i.item === item);
+    } catch (err) {
+      console.log("INVENTORY ERROR:", err);
 
-    if (existing) {
-      existing.amount += 1;
-    } else {
-      inv.push({
-        item,
-        amount: 1,
+      return interaction.reply({
+        content: "❌ Inventory failed",
+        ephemeral: true,
       });
     }
-
-    user.inventory = inv;
-    user.markModified("inventory");
-
-    await user.save();
-
-    return interaction.reply(
-      `🛒 You bought **${item}** for ${price} coins`
-    );
   },
 };

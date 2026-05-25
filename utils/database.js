@@ -65,11 +65,14 @@ const userSchema = new mongoose.Schema({
     default: false,
   },
 
-  // ⭐ NEW: PERSISTENT INVENTORY SYSTEM
+  // ⭐ INVENTORY SYSTEM (FULLY STABLE FIX)
   inventory: {
     type: [
       {
-        item: String,
+        item: {
+          type: String,
+          required: true,
+        },
         amount: {
           type: Number,
           default: 1,
@@ -78,9 +81,15 @@ const userSchema = new mongoose.Schema({
     ],
     default: [],
   },
+
+  // ⭐ EXTRA SAFETY FIELD (prevents undefined crashes)
+  createdAt: {
+    type: Number,
+    default: Date.now,
+  },
 });
 
-// GET OR CREATE USER
+// GET OR CREATE USER (SAFE + FIXED)
 userSchema.statics.getUser = async function (userId) {
   let user = await this.findOne({ userId });
 
@@ -95,8 +104,15 @@ userSchema.statics.getUser = async function (userId) {
       perk: "None",
       jailUntil: 0,
       perkClaimed: false,
-      inventory: [], // ⭐ IMPORTANT
+      inventory: [], // IMPORTANT FIX
+      createdAt: Date.now(),
     });
+  }
+
+  // ⭐ SAFETY PATCH (fix old users missing inventory)
+  if (!user.inventory) {
+    user.inventory = [];
+    await user.save();
   }
 
   return user;
