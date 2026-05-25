@@ -15,6 +15,9 @@ if (!fs.existsSync(commandsPath)) {
 // 🔥 LOAD ALL COMMAND FILES
 const folders = fs.readdirSync(commandsPath);
 
+// ⭐ NEW: duplicate protection map (ADDED, NOT REMOVING ANYTHING)
+const seenCommands = new Set();
+
 for (const folder of folders) {
   const folderPath = path.join(commandsPath, folder);
 
@@ -44,6 +47,14 @@ for (const folder of folders) {
         continue;
       }
 
+      // ⭐ NEW: PREVENT DUPLICATES (THIS FIXES YOUR ERROR)
+      if (seenCommands.has(command.data.name)) {
+        console.log(`⚠️ Duplicate command skipped: ${command.data.name} (${file})`);
+        continue;
+      }
+
+      seenCommands.add(command.data.name);
+
       commands.push(command.data.toJSON());
       console.log(`✅ Loaded: ${file}`);
     } catch (err) {
@@ -52,7 +63,7 @@ for (const folder of folders) {
   }
 }
 
-// 🔥 DEBUG FINAL OUTPUT (THIS IS KEY)
+// 🔥 DEBUG FINAL OUTPUT (FIXED)
 console.log("=================================");
 console.log("TOTAL COMMANDS LOADED:", commands.length);
 console.log("COMMAND LIST:", commands.map(c => c.name));
