@@ -7,7 +7,7 @@ module.exports = {
     .setDescription("💰 Sell items")
     .addStringOption(option =>
       option.setName("item")
-        .setDescription("Choose item to sell")
+        .setDescription("Choose item")
         .setRequired(true)
         .addChoices(
           { name: "Cake", value: "cake" },
@@ -28,43 +28,18 @@ module.exports = {
     const item = interaction.options.getString("item").toLowerCase();
     const user = await User.getUser(interaction.user.id);
 
-    let total = 0;
-
-    // ================= GOODS =================
-    const goodsPrices = {
-      cake: 1050,
-      fish: 550,
-      animal: 5050,
-      giftcard: 10,
-    };
-
-    if (user.goods && user.goods[item] > 0) {
-
-      const amount = user.goods[item];
-      const price = goodsPrices[item];
-
-      if (!price) return interaction.reply("❌ Cannot sell this item");
-
-      total = amount * price;
-
-      user.wallet += total;
-      user.goods[item] = 0;
-
-      await user.save();
-
-      return interaction.reply(`💰 Sold ALL ${item} (${amount}x) for ${total} coins`);
-    }
-
-    // ================= INVENTORY =================
     const inv = user.inventory || [];
-
-    const found = inv.find(i => i.item.toLowerCase() === item);
+    const found = inv.find(i => i.item === item);
 
     if (!found || found.amount <= 0) {
       return interaction.reply("❌ You don't own this item");
     }
 
     const prices = {
+      cake: 500,
+      fish: 200,
+      animal: 800,
+      giftcard: 10,
       "baking equipment": 2500,
       gun: 5000,
       rifle: 12500,
@@ -75,15 +50,18 @@ module.exports = {
 
     const price = prices[item];
 
-    if (!price) return interaction.reply("❌ This item has no sell value");
+    if (!price) {
+      return interaction.reply("❌ This item has no sell value");
+    }
 
-    total = found.amount * price;
+    const amount = found.amount;
+    const total = amount * price;
 
     user.wallet += total;
-    user.inventory = inv.filter(i => i.item.toLowerCase() !== item);
+    user.inventory = inv.filter(i => i.item !== item);
 
     await user.save();
 
-    return interaction.reply(`💰 Sold ALL ${item} (${found.amount}x) for ${total} coins`);
+    return interaction.reply(`💰 Sold ALL ${item} (${amount}x) for ${total} coins`);
   },
 };
