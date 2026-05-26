@@ -27,55 +27,17 @@ const userSchema = new mongoose.Schema({
     default: 0,
   },
 
-  lastDaily: {
-    type: Number,
-    default: 0,
-  },
+  lastDaily: { type: Number, default: 0 },
+  lastWork: { type: Number, default: 0 },
+  lastBeg: { type: Number, default: 0 },
+  lastSteal: { type: Number, default: 0 },
 
-  lastWork: {
-    type: Number,
-    default: 0,
-  },
-
-  lastBeg: {
-    type: Number,
-    default: 0,
-  },
-
-  lastSteal: {
-    type: Number,
-    default: 0,
-  },
-
-    lastBake: {
-    type: Number,
-    default: 0,
-  },
-
-  lastHunt: {
-    type: Number,
-    default: 0,
-  },
-
-  lastFish: {
-    type: Number,
-    default: 0,
-  },
-
-  lastStream: {
-    type: Number,
-    default: 0,
-  },
-
-  lastScam: {
-    type: Number,
-    default: 0,
-  },
-
-  lastBankRob: {
-    type: Number,
-    default: 0,
-  },
+  lastBake: { type: Number, default: 0 },
+  lastHunt: { type: Number, default: 0 },
+  lastFish: { type: Number, default: 0 },
+  lastStream: { type: Number, default: 0 },
+  lastScam: { type: Number, default: 0 },
+  lastBankRob: { type: Number, default: 0 },
 
   bankJailUntil: {
     type: Number,
@@ -94,13 +56,12 @@ const userSchema = new mongoose.Schema({
     default: 0,
   },
 
-  // ⭐ FREE PERK TRACKER
   perkClaimed: {
     type: Boolean,
     default: false,
   },
 
-  // ⭐ INVENTORY SYSTEM (FULLY STABLE FIX)
+  // ⭐ INVENTORY (PRIMARY STORAGE)
   inventory: {
     type: [
       {
@@ -117,7 +78,12 @@ const userSchema = new mongoose.Schema({
     default: [],
   },
 
-   // ⭐ EXTRA SAFETY FIELD (prevents undefined crashes)
+  // ⭐ GOODS SYSTEM (FIX FOR /sell CAKE/FISH/ANIMAL/GIFTCARD)
+  goods: {
+    type: Object,
+    default: {},
+  },
+
   createdAt: {
     type: Number,
     default: Date.now,
@@ -133,7 +99,6 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 1000,
   },
-  
 });
 
 // GET OR CREATE USER (SAFE + FIXED)
@@ -144,37 +109,29 @@ userSchema.statics.getUser = async function (userId) {
     user = await this.create({
       userId,
       wallet: 0,
-      lastDaily: 0,
-      lastWork: 0,
-      lastBeg: 0,
-      lastSteal: 0,
-      lastBake: 0,
-      lastHunt: 0,
-      lastFish: 0,
-      lastStream: 0,
-      lastScam: 0,
-      lastBankRob: 0,
-      bankJailUntil: 0,
-      perk: "None",
-      jailUntil: 0,
-      perkClaimed: false,
-      inventory: [], // IMPORTANT FIX
-      createdAt: Date.now(),
+      inventory: [],
+      goods: {}, // ⭐ IMPORTANT FIX
       bank: 0,
       bankSpace: 1000,
+      perk: "None",
+      jailUntil: 0,
+      bankJailUntil: 0,
+      perkClaimed: false,
+      createdAt: Date.now(),
     });
   }
 
-  // ⭐ SAFETY PATCH (fix old users missing inventory)
-  if (!user.inventory) {
-    user.inventory = [];
-    await user.save();
-  }
+  // 🔥 PATCH OLD USERS (VERY IMPORTANT FIX)
+  if (!user.inventory) user.inventory = [];
+  if (!user.goods) user.goods = {};
+  if (!user.bank) user.bank = 0;
+  if (!user.bankSpace) user.bankSpace = 1000;
+
+  await user.save();
 
   return user;
 };
 
-// MODEL
 const User = mongoose.model("User", userSchema);
 
 module.exports = User;
