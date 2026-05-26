@@ -6,7 +6,7 @@ module.exports = {
     .setName("sell")
     .setDescription("💰 Sell items")
 
-    // 🔥 DROPDOWN FIX (THIS IS WHAT YOU WANTED)
+    // 🔥 DROPDOWN (FIXED)
     .addStringOption(option =>
       option.setName("item")
         .setDescription("Choose item to sell")
@@ -26,17 +26,18 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const item = interaction.options.getString("item");
+
+    let item = interaction.options.getString("item");
+    item = item.trim().toLowerCase(); // 🔥 FIX 1: normalize input
+
     const user = await User.getUser(interaction.user.id);
 
     let total = 0;
 
-    // ================= GOODS =================
-    if (user.goods[item]) {
-      const amount = user.goods[item];
+    // ================= GOODS SYSTEM =================
+    if (user.goods && user.goods[item] && user.goods[item] > 0) {
 
-      if (amount <= 0)
-        return interaction.reply("❌ You don't have this item");
+      const amount = user.goods[item];
 
       const priceMap = {
         cake: 10,
@@ -45,22 +46,34 @@ module.exports = {
         giftcard: 10,
       };
 
-      total = amount * (priceMap[item] || 0);
+      const unitPrice = priceMap[item];
+
+      if (!unitPrice) {
+        return interaction.reply("❌ This item cannot be sold as goods");
+      }
+
+      total = amount * unitPrice;
 
       user.wallet += total;
       user.goods[item] = 0;
 
       await user.save();
 
-      return interaction.reply(`💰 Sold ALL ${item} for ${total} coins`);
+      return interaction.reply(
+        `💰 Sold ALL ${item} (${amount}x) for ${total} coins`
+      );
     }
 
-    // ================= INVENTORY =================
+    // ================= INVENTORY SYSTEM =================
     const inv = user.inventory || [];
-    const found = inv.find(i => i.item === item);
 
-    if (!found || found.amount <= 0)
+    const found = inv.find(
+      i => i.item.toLowerCase() === item
+    );
+
+    if (!found || found.amount <= 0) {
       return interaction.reply("❌ You don't own this item");
+    }
 
     const prices = {
       "baking equipment": 2500,
@@ -71,13 +84,24 @@ module.exports = {
       "ski masks": 50,
     };
 
-    total = found.amount * (prices[item] || 0);
+    const unitPrice = prices[item];
+
+    if (!unitPrice) {
+      return interaction.reply("❌ This item has no sell value");
+    }
+
+    total = found.amount * unitPrice;
 
     user.wallet += total;
-    user.inventory = inv.filter(i => i.item !== item);
+
+    user.inventory = inv.filter(
+      i => i.item.toLowerCase() !== item
+    );
 
     await user.save();
 
-    return interaction.reply(`💰 Sold ALL ${item} for ${total} coins`);
+    return interaction.reply(
+      `💰 Sold ALL ${item} (${found.amount}x) for ${total} coins`
+    );
   },
 };
