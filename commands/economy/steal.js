@@ -30,22 +30,27 @@ module.exports = {
 
     const now = Date.now();
 
-    // 🚔 JAIL CHECK (NEW FEATURE)
+    // 🚔 JAIL CHECK
     if (user.jailUntil && user.jailUntil > now) {
       const left = Math.ceil((user.jailUntil - now) / 1000);
       return interaction.reply(`🚔 You're in jail for ${left}s`);
     }
 
-        // 🎭 REQUIRE SKI MASK
-    const mask = user.inventory.find(
+    // 🎭 SKI MASK CHECK + CONSUME
+    const maskIndex = user.inventory.findIndex(
       i => i.item === "ski masks" && i.amount > 0
     );
 
-    if (!mask) {
-      return interaction.reply(
-        "❌ You need a ski mask to steal"
-      );
+    if (maskIndex === -1) {
+      return interaction.reply("❌ You need a ski mask to steal");
     }
+
+    // consume 1 mask
+    user.inventory[maskIndex].amount -= 1;
+    if (user.inventory[maskIndex].amount <= 0) {
+      user.inventory.splice(maskIndex, 1);
+    }
+    user.markModified("inventory");
 
     // ⏳ COOLDOWN CHECK
     if (now - user.lastSteal < cooldown) {
@@ -60,14 +65,12 @@ module.exports = {
     // 🎲 FAIL CHANCE SYSTEM
     let failChance = 0.50;
 
-    // 🟣 PERK: Robber reduces fail chance
     if (user.perk === "Robber") {
       failChance = 0.15;
     }
 
     const failed = Math.random() < failChance;
 
-    // ❌ FAILED → JAIL
     if (failed) {
       user.jailUntil = now + jailTime;
       user.lastSteal = now;
@@ -79,7 +82,6 @@ module.exports = {
       );
     }
 
-    // 💰 SUCCESS STEAL
     const stolen = Math.floor(Math.random() * Math.max(1, target.wallet));
 
     target.wallet -= stolen;

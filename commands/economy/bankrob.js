@@ -76,6 +76,37 @@ module.exports = {
       );
     }
 
+    // 🎭 CONSUME USER MASK
+const userMaskIndex = user.inventory.findIndex(
+  i => i.item === "ski masks" && i.amount > 0
+);
+
+if (userMaskIndex === -1) {
+  return interaction.reply("❌ You need ski masks");
+}
+
+user.inventory[userMaskIndex].amount -= 1;
+if (user.inventory[userMaskIndex].amount <= 0) {
+  user.inventory.splice(userMaskIndex, 1);
+}
+
+// 🎭 CONSUME PARTNER MASK
+const partnerMaskIndex = partner.inventory.findIndex(
+  i => i.item === "ski masks" && i.amount > 0
+);
+
+if (partnerMaskIndex === -1) {
+  return interaction.reply("❌ Partner needs ski masks");
+}
+
+partner.inventory[partnerMaskIndex].amount -= 1;
+if (partner.inventory[partnerMaskIndex].amount <= 0) {
+  partner.inventory.splice(partnerMaskIndex, 1);
+}
+
+user.markModified("inventory");
+partner.markModified("inventory");
+
     // 🎭 PARTNER NEEDS MASK TOO
     const partnerMask =
       partner.inventory.find(
