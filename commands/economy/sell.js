@@ -5,8 +5,6 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("sell")
     .setDescription("💰 Sell items")
-
-    // 🔥 DROPDOWN (FIXED)
     .addStringOption(option =>
       option.setName("item")
         .setDescription("Choose item to sell")
@@ -27,32 +25,36 @@ module.exports = {
 
   async execute(interaction) {
 
-    let item = interaction.options.getString("item");
-    item = item.trim().toLowerCase(); // 🔥 FIX 1: normalize input
-
+    const item = interaction.options.getString("item").toLowerCase();
     const user = await User.getUser(interaction.user.id);
 
     let total = 0;
 
-    // ================= GOODS SYSTEM =================
+    // ===================== GOODS SYSTEM =====================
+    const goodsPrices = {
+      cake: [10, 2000],
+      fish: [100, 1000],
+      animal: [100, 10000],
+      giftcard: [10, 10],
+    };
+
     if (user.goods && user.goods[item] && user.goods[item] > 0) {
 
       const amount = user.goods[item];
 
-      const priceMap = {
-        cake: 10,
-        fish: 100,
-        animal: 100,
-        giftcard: 10,
-      };
+      const range = goodsPrices[item];
 
-      const unitPrice = priceMap[item];
-
-      if (!unitPrice) {
+      if (!range) {
         return interaction.reply("❌ This item cannot be sold as goods");
       }
 
-      total = amount * unitPrice;
+      let min = range[0];
+      let max = range[1];
+
+      // average price system
+      const avg = Math.floor((min + max) / 2);
+
+      total = amount * avg;
 
       user.wallet += total;
       user.goods[item] = 0;
@@ -64,7 +66,7 @@ module.exports = {
       );
     }
 
-    // ================= INVENTORY SYSTEM =================
+    // ===================== INVENTORY SYSTEM =====================
     const inv = user.inventory || [];
 
     const found = inv.find(
