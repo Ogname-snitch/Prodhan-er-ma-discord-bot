@@ -35,7 +35,15 @@ module.exports = {
     const user =
       await User.getUser(interaction.user.id);
 
+    // =========================
+    // ⭐ FIX: SAFE INITIALIZATION
+    // =========================
+    if (!user.goods) user.goods = {};
+    if (!user.inventory) user.inventory = [];
+
+    // =========================
     // ⭐ SELLABLE GOODS SYSTEM
+    // =========================
     if (
       item === "cake" ||
       item === "fish" ||
@@ -43,9 +51,7 @@ module.exports = {
       item === "giftcard"
     ) {
 
-      const goods = user.goods || {};
-
-      if (!goods[item] || goods[item] <= 0) {
+      if (!user.goods[item] || user.goods[item] <= 0) {
         return interaction.reply(
           `❌ You don't have any ${item}s`
         );
@@ -54,32 +60,24 @@ module.exports = {
       let value = 0;
 
       if (item === "cake") {
-        value = Math.floor(
-          Math.random() * 1991
-        ) + 10;
+        value = Math.floor(Math.random() * 1991) + 10;
       }
 
       if (item === "fish") {
-        value = Math.floor(
-          Math.random() * 901
-        ) + 100;
+        value = Math.floor(Math.random() * 901) + 100;
       }
 
       if (item === "animal") {
-        value = Math.floor(
-          Math.random() * 9901
-        ) + 100;
+        value = Math.floor(Math.random() * 9901) + 100;
       }
 
       if (item === "giftcard") {
-        value = goods[item] * 10;
+        value = user.goods[item] * 10;
 
         user.wallet += value;
-        goods[item] = 0;
+        user.goods[item] = 0;
 
-        user.goods = goods;
         user.markModified("goods");
-
         await user.save();
 
         return interaction.reply(
@@ -87,14 +85,10 @@ module.exports = {
         );
       }
 
-      goods[item] -= 1;
-
+      user.goods[item] -= 1;
       user.wallet += value;
 
-      user.goods = goods;
-
       user.markModified("goods");
-
       await user.save();
 
       return interaction.reply(
@@ -102,12 +96,12 @@ module.exports = {
       );
     }
 
-    // ⭐ OLD INVENTORY SYSTEM
-    const inv = user.inventory || [];
+    // =========================
+    // ⭐ INVENTORY SYSTEM (FIXED)
+    // =========================
+    const inv = user.inventory;
 
-    const existing = inv.find(
-      i => i.item === item
-    );
+    const existing = inv.find(i => i.item === item);
 
     if (!existing || existing.amount <= 0) {
       return interaction.reply(
@@ -120,8 +114,7 @@ module.exports = {
     existing.amount -= 1;
 
     if (existing.amount <= 0) {
-      user.inventory =
-        inv.filter(i => i.item !== item);
+      user.inventory = inv.filter(i => i.item !== item);
     }
 
     user.wallet += value;

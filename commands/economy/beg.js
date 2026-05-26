@@ -27,7 +27,7 @@ module.exports = {
     // 🟣 PERK: BEGGAR (higher jackpot chance)
     if (user.perk === "Beggar") {
       if (Math.random() < 0.65) {
-        amount = 1000;
+        amount = 3000;
       }
     }
 
