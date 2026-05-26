@@ -47,6 +47,41 @@ const userSchema = new mongoose.Schema({
     default: 0,
   },
 
+    lastBake: {
+    type: Number,
+    default: 0,
+  },
+
+  lastHunt: {
+    type: Number,
+    default: 0,
+  },
+
+  lastFish: {
+    type: Number,
+    default: 0,
+  },
+
+  lastStream: {
+    type: Number,
+    default: 0,
+  },
+
+  lastScam: {
+    type: Number,
+    default: 0,
+  },
+
+  lastBankRob: {
+    type: Number,
+    default: 0,
+  },
+
+  bankJailUntil: {
+    type: Number,
+    default: 0,
+  },
+
   // ⭐ PERK SYSTEM
   perk: {
     type: String,
@@ -98,6 +133,7 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 1000,
   },
+  
 });
 
 // GET OR CREATE USER (SAFE + FIXED)
@@ -112,6 +148,13 @@ userSchema.statics.getUser = async function (userId) {
       lastWork: 0,
       lastBeg: 0,
       lastSteal: 0,
+      lastBake: 0,
+      lastHunt: 0,
+      lastFish: 0,
+      lastStream: 0,
+      lastScam: 0,
+      lastBankRob: 0,
+      bankJailUntil: 0,
       perk: "None",
       jailUntil: 0,
       perkClaimed: false,
