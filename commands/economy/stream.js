@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
-const cooldown = 20000;
+const cooldown = 300000;
 
 module.exports = {
   data: new SlashCommandBuilder()
