@@ -11,49 +11,28 @@ module.exports = {
   async execute(interaction) {
 
     const user = await User.getUser(interaction.user.id);
-
     const now = Date.now();
 
     if (now - user.lastFish < cooldown) {
-      const left = Math.ceil(
-        (cooldown - (now - user.lastFish)) / 1000
-      );
-
-      return interaction.reply(`⏳ Wait ${left}s`);
+      return interaction.reply(`⏳ Wait ${Math.ceil((cooldown - (now - user.lastFish)) / 1000)}s`);
     }
 
-    const rod = user.inventory.find(
-      i => i.item === "fishing rod" && i.amount > 0
-    );
+    const rod = user.inventory.find(i => i.item === "fishing rod" && i.amount > 0);
+    if (!rod) return interaction.reply("❌ You need a fishing rod");
 
-    if (!rod) {
-      return interaction.reply(
-        "❌ You need a fishing rod"
-      );
-    }
+    const value = Math.floor(Math.random() * 901) + 100;
 
-    const value =
-      Math.floor(Math.random() * 901) + 100;
-
-    const existing = user.inventory.find(
-      i => i.item === "fish"
-    );
+    const existing = user.inventory.find(i => i.item === "fish");
 
     if (existing) {
       existing.amount += 1;
     } else {
-      user.inventory.push({
-        item: "fish",
-        amount: 1,
-      });
+      user.inventory.push({ item: "fish", amount: 1 });
     }
 
     user.lastFish = now;
-
     await user.save();
 
-    return interaction.reply(
-      `🐟 You caught a fish worth ${value} coins`
-    );
+    return interaction.reply(`🐟 You caught a fish worth ${value} coins`);
   },
 };

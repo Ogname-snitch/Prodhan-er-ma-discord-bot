@@ -11,49 +11,28 @@ module.exports = {
   async execute(interaction) {
 
     const user = await User.getUser(interaction.user.id);
-
     const now = Date.now();
 
     if (now - user.lastBake < cooldown) {
-      const left = Math.ceil(
-        (cooldown - (now - user.lastBake)) / 1000
-      );
-
-      return interaction.reply(`⏳ Wait ${left}s`);
+      return interaction.reply(`⏳ Wait ${Math.ceil((cooldown - (now - user.lastBake)) / 1000)}s`);
     }
 
-    const equipment = user.inventory.find(
-      i => i.item === "baking equipment" && i.amount > 0
-    );
+    const equipment = user.inventory.find(i => i.item === "baking equipment" && i.amount > 0);
+    if (!equipment) return interaction.reply("❌ You need baking equipment");
 
-    if (!equipment) {
-      return interaction.reply(
-        "❌ You need baking equipment"
-      );
-    }
+    const value = Math.floor(Math.random() * 1991) + 10;
 
-    const value =
-      Math.floor(Math.random() * 1991) + 10;
-
-    const existing = user.inventory.find(
-      i => i.item === "cake"
-    );
+    const existing = user.inventory.find(i => i.item === "cake");
 
     if (existing) {
       existing.amount += 1;
     } else {
-      user.inventory.push({
-        item: "cake",
-        amount: 1,
-      });
+      user.inventory.push({ item: "cake", amount: 1 });
     }
 
     user.lastBake = now;
-
     await user.save();
 
-    return interaction.reply(
-      `🎂 You baked a cake worth ${value} coins`
-    );
+    return interaction.reply(`🎂 You baked a cake worth ${value} coins`);
   },
 };

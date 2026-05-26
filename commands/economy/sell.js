@@ -30,48 +30,35 @@ module.exports = {
 
     let total = 0;
 
-    // ===================== GOODS SYSTEM =====================
+    // ================= GOODS =================
     const goodsPrices = {
-      cake: [10, 2000],
-      fish: [100, 1000],
-      animal: [100, 10000],
-      giftcard: [10, 10],
+      cake: 1050,
+      fish: 550,
+      animal: 5050,
+      giftcard: 10,
     };
 
-    if (user.goods && user.goods[item] && user.goods[item] > 0) {
+    if (user.goods && user.goods[item] > 0) {
 
       const amount = user.goods[item];
+      const price = goodsPrices[item];
 
-      const range = goodsPrices[item];
+      if (!price) return interaction.reply("❌ Cannot sell this item");
 
-      if (!range) {
-        return interaction.reply("❌ This item cannot be sold as goods");
-      }
-
-      let min = range[0];
-      let max = range[1];
-
-      // average price system
-      const avg = Math.floor((min + max) / 2);
-
-      total = amount * avg;
+      total = amount * price;
 
       user.wallet += total;
       user.goods[item] = 0;
 
       await user.save();
 
-      return interaction.reply(
-        `💰 Sold ALL ${item} (${amount}x) for ${total} coins`
-      );
+      return interaction.reply(`💰 Sold ALL ${item} (${amount}x) for ${total} coins`);
     }
 
-    // ===================== INVENTORY SYSTEM =====================
+    // ================= INVENTORY =================
     const inv = user.inventory || [];
 
-    const found = inv.find(
-      i => i.item.toLowerCase() === item
-    );
+    const found = inv.find(i => i.item.toLowerCase() === item);
 
     if (!found || found.amount <= 0) {
       return interaction.reply("❌ You don't own this item");
@@ -86,24 +73,17 @@ module.exports = {
       "ski masks": 50,
     };
 
-    const unitPrice = prices[item];
+    const price = prices[item];
 
-    if (!unitPrice) {
-      return interaction.reply("❌ This item has no sell value");
-    }
+    if (!price) return interaction.reply("❌ This item has no sell value");
 
-    total = found.amount * unitPrice;
+    total = found.amount * price;
 
     user.wallet += total;
-
-    user.inventory = inv.filter(
-      i => i.item.toLowerCase() !== item
-    );
+    user.inventory = inv.filter(i => i.item.toLowerCase() !== item);
 
     await user.save();
 
-    return interaction.reply(
-      `💰 Sold ALL ${item} (${found.amount}x) for ${total} coins`
-    );
+    return interaction.reply(`💰 Sold ALL ${item} (${found.amount}x) for ${total} coins`);
   },
 };

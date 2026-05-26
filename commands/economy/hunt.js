@@ -11,51 +11,31 @@ module.exports = {
   async execute(interaction) {
 
     const user = await User.getUser(interaction.user.id);
-
     const now = Date.now();
 
     if (now - user.lastHunt < cooldown) {
-      const left = Math.ceil(
-        (cooldown - (now - user.lastHunt)) / 1000
-      );
-
-      return interaction.reply(`⏳ Wait ${left}s`);
+      return interaction.reply(`⏳ Wait ${Math.ceil((cooldown - (now - user.lastHunt)) / 1000)}s`);
     }
 
-    const weapon = user.inventory.find(
-      i =>
-        (i.item === "gun" || i.item === "rifle") &&
-        i.amount > 0
+    const weapon = user.inventory.find(i =>
+      (i.item === "gun" || i.item === "rifle") && i.amount > 0
     );
 
-    if (!weapon) {
-      return interaction.reply(
-        "❌ You need a gun or rifle"
-      );
-    }
+    if (!weapon) return interaction.reply("❌ You need a gun or rifle");
 
-    const value =
-      Math.floor(Math.random() * 9901) + 100;
+    const value = Math.floor(Math.random() * 9901) + 100;
 
-    const existing = user.inventory.find(
-      i => i.item === "animal"
-    );
+    const existing = user.inventory.find(i => i.item === "animal");
 
     if (existing) {
       existing.amount += 1;
     } else {
-      user.inventory.push({
-        item: "animal",
-        amount: 1,
-      });
+      user.inventory.push({ item: "animal", amount: 1 });
     }
 
     user.lastHunt = now;
-
     await user.save();
 
-    return interaction.reply(
-      `🦌 You hunted an animal worth ${value} coins`
-    );
+    return interaction.reply(`🦌 You hunted an animal worth ${value} coins`);
   },
 };
