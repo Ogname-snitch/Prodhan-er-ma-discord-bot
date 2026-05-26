@@ -7,11 +7,11 @@ module.exports = {
     .setDescription("💰 Sell items")
     .addStringOption(option =>
       option.setName("item")
-        .setDescription("Choose item")
+        .setDescription("Choose item to sell")
         .setRequired(true)
         .addChoices(
-          { name: "Cake", value: "cake" },
           { name: "Fish", value: "fish" },
+          { name: "Cake", value: "cake" },
           { name: "Animal", value: "animal" },
           { name: "Giftcard", value: "giftcard" },
           { name: "Baking Equipment", value: "baking equipment" },
@@ -25,43 +25,76 @@ module.exports = {
 
   async execute(interaction) {
 
-    const item = interaction.options.getString("item").toLowerCase();
+    const item = interaction.options.getString("item");
     const user = await User.getUser(interaction.user.id);
 
     const inv = user.inventory || [];
+
     const found = inv.find(i => i.item === item);
 
     if (!found || found.amount <= 0) {
       return interaction.reply("❌ You don't own this item");
     }
 
-    const prices = {
-      cake: 500,
-      fish: 200,
-      animal: 800,
-      giftcard: 10,
-      "baking equipment": 2500,
-      gun: 5000,
-      rifle: 12500,
-      "streaming equipment": 10000,
-      games: 5000,
-      "ski masks": 50,
-    };
+    let total = 0;
+    const amount = found.amount;
 
-    const price = prices[item];
+    // ================= RANDOM VALUE SYSTEM =================
 
-    if (!price) {
-      return interaction.reply("❌ This item has no sell value");
+    if (item === "fish") {
+      for (let i = 0; i < amount; i++) {
+        total += Math.floor(Math.random() * 501) + 100; // 100–600
+      }
     }
 
-    const amount = found.amount;
-    const total = amount * price;
+    else if (item === "cake") {
+      for (let i = 0; i < amount; i++) {
+        total += Math.floor(Math.random() * 2001) + 1000; // 1000–3000
+      }
+    }
+
+    else if (item === "animal") {
+      for (let i = 0; i < amount; i++) {
+        total += Math.floor(Math.random() * 5001) + 2000; // 2000–7000
+      }
+    }
+
+    else if (item === "giftcard") {
+      for (let i = 0; i < amount; i++) {
+        total += Math.floor(Math.random() * 991) + 10; // 10–1000
+      }
+    }
+
+    // ================= NORMAL ITEMS =================
+
+    else {
+      const prices = {
+        "baking equipment": 2500,
+        gun: 5000,
+        rifle: 12500,
+        "streaming equipment": 10000,
+        games: 5000,
+        "ski masks": 50,
+      };
+
+      const price = prices[item];
+
+      if (!price) {
+        return interaction.reply("❌ This item has no sell value");
+      }
+
+      total = amount * price;
+    }
+
+    // remove item
+    user.inventory = inv.filter(i => i.item !== item);
 
     user.wallet += total;
-    user.inventory = inv.filter(i => i.item !== item);
 
     await user.save();
 
-    return interaction.reply(`💰 Sold ALL ${item} (${amount}x) for ${total} coins`);
+    return interaction.reply(
+      `💰 Sold ALL ${item} (${amount}x) for ${total} coins`
+    );
   },
 };

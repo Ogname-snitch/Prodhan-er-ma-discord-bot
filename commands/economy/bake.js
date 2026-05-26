@@ -14,13 +14,17 @@ module.exports = {
     const now = Date.now();
 
     if (now - user.lastBake < cooldown) {
-      return interaction.reply(`⏳ Wait ${Math.ceil((cooldown - (now - user.lastBake)) / 1000)}s`);
+      const left = Math.ceil((cooldown - (now - user.lastBake)) / 1000);
+      return interaction.reply(`⏳ Wait ${left}s`);
     }
 
-    const equipment = user.inventory.find(i => i.item === "baking equipment" && i.amount > 0);
-    if (!equipment) return interaction.reply("❌ You need baking equipment");
+    const equipment = user.inventory.find(
+      i => i.item === "baking equipment" && i.amount > 0
+    );
 
-    const value = Math.floor(Math.random() * 1991) + 10;
+    if (!equipment) {
+      return interaction.reply("❌ You need baking equipment");
+    }
 
     const existing = user.inventory.find(i => i.item === "cake");
 
@@ -33,6 +37,6 @@ module.exports = {
     user.lastBake = now;
     await user.save();
 
-    return interaction.reply(`🎂 You baked a cake worth ${value} coins`);
+    return interaction.reply("🎂 You baked a cake");
   },
 };

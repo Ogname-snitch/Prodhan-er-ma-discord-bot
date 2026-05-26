@@ -14,16 +14,17 @@ module.exports = {
     const now = Date.now();
 
     if (now - user.lastHunt < cooldown) {
-      return interaction.reply(`⏳ Wait ${Math.ceil((cooldown - (now - user.lastHunt)) / 1000)}s`);
+      const left = Math.ceil((cooldown - (now - user.lastHunt)) / 1000);
+      return interaction.reply(`⏳ Wait ${left}s`);
     }
 
-    const weapon = user.inventory.find(i =>
-      (i.item === "gun" || i.item === "rifle") && i.amount > 0
+    const weapon = user.inventory.find(
+      i => (i.item === "gun" || i.item === "rifle") && i.amount > 0
     );
 
-    if (!weapon) return interaction.reply("❌ You need a gun or rifle");
-
-    const value = Math.floor(Math.random() * 9901) + 100;
+    if (!weapon) {
+      return interaction.reply("❌ You need a gun or rifle");
+    }
 
     const existing = user.inventory.find(i => i.item === "animal");
 
@@ -36,6 +37,6 @@ module.exports = {
     user.lastHunt = now;
     await user.save();
 
-    return interaction.reply(`🦌 You hunted an animal worth ${value} coins`);
+    return interaction.reply("🦌 You hunted an animal");
   },
 };
