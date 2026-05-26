@@ -1,137 +1,97 @@
-const {
-  SlashCommandBuilder,
-} = require("discord.js");
-
+const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
-// 💰 SELL VALUES
-const prices = {
-  "baking equipment": 2500,
-  "gun": 5000,
-  "rifle": 12500,
-  "streaming equipment": 10000,
-  "games": 5000,
-  "ski masks": 50,
-};
+const cooldown = 60000; // 1 minute
+const jailTime = 10 * 60 * 1000; // 10 minutes
+
+async function getUser(id) {
+  return await User.getUser(id);
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("sell")
-    .setDescription("💰 Sell an item or goods")
-    .addStringOption(option =>
-      option
-        .setName("item")
-        .setDescription("Item to sell")
+    .setName("steal")
+    .setDescription("🕵️ Steal coins")
+    .addUserOption(o =>
+      o.setName("user")
+        .setDescription("Target")
         .setRequired(true)
     ),
 
   async execute(interaction) {
+    const targetUser = interaction.options.getUser("user");
 
-    const item =
-      interaction.options
-        .getString("item")
-        .toLowerCase();
+    if (targetUser.id === interaction.user.id) {
+      return interaction.reply("❌ You can't steal from yourself");
+    }
 
-    const user =
-      await User.getUser(interaction.user.id);
+    const user = await getUser(interaction.user.id);
+    const target = await getUser(targetUser.id);
 
-    // ⭐ SELLABLE GOODS SYSTEM
-    if (
-      item === "cake" ||
-      item === "fish" ||
-      item === "animal" ||
-      item === "giftcard"
-    ) {
+    const now = Date.now();
 
-      const goods = user.goods || {};
+    // 🚔 JAIL CHECK (NEW FEATURE)
+    if (user.jailUntil && user.jailUntil > now) {
+      const left = Math.ceil((user.jailUntil - now) / 1000);
+      return interaction.reply(`🚔 You're in jail for ${left}s`);
+    }
 
-      if (!goods[item] || goods[item] <= 0) {
-        return interaction.reply(
-          `❌ You don't have any ${item}s`
-        );
-      }
+        // 🎭 REQUIRE SKI MASK
+    const mask = user.inventory.find(
+      i => i.item === "ski masks" && i.amount > 0
+    );
 
-      let value = 0;
+    if (!mask) {
+      return interaction.reply(
+        "❌ You need a ski mask to steal"
+      );
+    }
 
-      if (item === "cake") {
-        value = Math.floor(
-          Math.random() * 1991
-        ) + 10;
-      }
+    // ⏳ COOLDOWN CHECK
+    if (now - user.lastSteal < cooldown) {
+      const left = Math.ceil((cooldown - (now - user.lastSteal)) / 1000);
+      return interaction.reply(`⏳ Wait ${left} seconds`);
+    }
 
-      if (item === "fish") {
-        value = Math.floor(
-          Math.random() * 901
-        ) + 100;
-      }
+    if (target.wallet <= 0) {
+      return interaction.reply("❌ Target has no money");
+    }
 
-      if (item === "animal") {
-        value = Math.floor(
-          Math.random() * 9901
-        ) + 100;
-      }
+    // 🎲 FAIL CHANCE SYSTEM
+    let failChance = 0.50;
 
-      if (item === "giftcard") {
-        value = goods[item] * 10;
+    // 🟣 PERK: Robber reduces fail chance
+    if (user.perk === "Robber") {
+      failChance = 0.15;
+    }
 
-        user.wallet += value;
-        goods[item] = 0;
+    const failed = Math.random() < failChance;
 
-        user.goods = goods;
-        user.markModified("goods");
-
-        await user.save();
-
-        return interaction.reply(
-          `💰 Sold all giftcards for ${value} coins`
-        );
-      }
-
-      goods[item] -= 1;
-
-      user.wallet += value;
-
-      user.goods = goods;
-
-      user.markModified("goods");
+    // ❌ FAILED → JAIL
+    if (failed) {
+      user.jailUntil = now + jailTime;
+      user.lastSteal = now;
 
       await user.save();
 
       return interaction.reply(
-        `💰 Sold 1 ${item} for ${value} coins`
+        "🚨 You got caught! Sent to jail for 10 minutes."
       );
     }
 
-    // ⭐ OLD INVENTORY SYSTEM
-    const inv = user.inventory || [];
+    // 💰 SUCCESS STEAL
+    const stolen = Math.floor(Math.random() * Math.max(1, target.wallet));
 
-    const existing = inv.find(
-      i => i.item === item
-    );
+    target.wallet -= stolen;
+    user.wallet += stolen;
 
-    if (!existing || existing.amount <= 0) {
-      return interaction.reply(
-        "❌ You don't own this item"
-      );
-    }
-
-    const value = prices[item] || 0;
-
-    existing.amount -= 1;
-
-    if (existing.amount <= 0) {
-      user.inventory =
-        inv.filter(i => i.item !== item);
-    }
-
-    user.wallet += value;
-
-    user.markModified("inventory");
+    user.lastSteal = now;
 
     await user.save();
+    await target.save();
 
     return interaction.reply(
-      `💰 You sold **${item}** for ${value} coins`
+      `🕵️ You stole ${stolen} coins from <@${targetUser.id}>`
     );
   },
 };
