@@ -1,7 +1,7 @@
 const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
-// 💰 SELL VALUES
+// 💰 ITEM PRICES (shop items)
 const prices = {
   "baking equipment": 2500,
   "gun": 5000,
@@ -14,7 +14,7 @@ const prices = {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("sell")
-    .setDescription("💰 Sell items or goods")
+    .setDescription("💰 Sell all items of a type")
     .addStringOption(option =>
       option
         .setName("item")
@@ -31,36 +31,26 @@ module.exports = {
     let totalAmount = 0;
 
     // =========================
-    // ⭐ GOODS SYSTEM (cake, fish, etc)
+    // 🟢 GOODS SYSTEM (cake/fish/animal/giftcard)
     // =========================
-    if (user.goods && user.goods[item] !== undefined) {
+    if (user.goods && user.goods[item] && user.goods[item] > 0) {
 
       totalAmount = user.goods[item];
 
-      if (totalAmount <= 0) {
-        return interaction.reply(`❌ You don't have any ${item}`);
-      }
+      let baseValue = 0;
 
-      if (item === "cake") {
-        totalValue = totalAmount * (Math.floor(Math.random() * 1991) + 10);
-      }
+      if (item === "cake") baseValue = 10;
+      if (item === "fish") baseValue = 100;
+      if (item === "animal") baseValue = 100;
+      if (item === "giftcard") baseValue = 10;
 
-      if (item === "fish") {
-        totalValue = totalAmount * (Math.floor(Math.random() * 901) + 100);
-      }
-
-      if (item === "animal") {
-        totalValue = totalAmount * (Math.floor(Math.random() * 9901) + 100);
-      }
-
-      if (item === "giftcard") {
-        totalValue = totalAmount * 10;
-      }
+      totalValue = totalAmount * baseValue;
 
       user.wallet += totalValue;
-      user.goods[item] = 0;
 
+      user.goods[item] = 0;
       user.markModified("goods");
+
       await user.save();
 
       return interaction.reply(
@@ -69,7 +59,7 @@ module.exports = {
     }
 
     // =========================
-    // ⭐ ARRAY INVENTORY SYSTEM
+    // 🟡 INVENTORY SYSTEM (shop items)
     // =========================
     const inv = user.inventory || [];
     const existing = inv.find(i => i.item === item);
@@ -83,10 +73,10 @@ module.exports = {
 
     totalValue = price * totalAmount;
 
+    user.wallet += totalValue;
+
     // remove item completely
     user.inventory = inv.filter(i => i.item !== item);
-
-    user.wallet += totalValue;
 
     user.markModified("inventory");
     await user.save();
