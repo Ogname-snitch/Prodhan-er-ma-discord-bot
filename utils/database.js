@@ -82,10 +82,21 @@ const userSchema = new mongoose.Schema({
     default: [],
   },
 
-  // ⭐ EXTRA SAFETY FIELD (prevents undefined crashes)
+   // ⭐ EXTRA SAFETY FIELD (prevents undefined crashes)
   createdAt: {
     type: Number,
     default: Date.now,
+  },
+
+  // ⭐ BANK SYSTEM
+  bank: {
+    type: Number,
+    default: 0,
+  },
+
+  bankSpace: {
+    type: Number,
+    default: 1000,
   },
 });
 
@@ -106,6 +117,8 @@ userSchema.statics.getUser = async function (userId) {
       perkClaimed: false,
       inventory: [], // IMPORTANT FIX
       createdAt: Date.now(),
+      bank: 0,
+      bankSpace: 1000,
     });
   }
 

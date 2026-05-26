@@ -11,6 +11,10 @@ async function getUser(id) {
     user = await User.create({
       userId: id,
       perk: "None",
+
+      // ⭐ BANK DEFAULTS
+      bank: 0,
+      bankSpace: 1000,
     });
   }
 
@@ -40,8 +44,14 @@ module.exports = {
     const perk =
       user.perk || "None";
 
+    const bank =
+      user.bank || 0;
+
+    const bankSpace =
+      user.bankSpace || 1000;
+
     return interaction.reply(
-      `💰 ${target.username} has ${user.wallet} coins\n⭐ Perk: ${perk}`
+      `💰 ${target.username} has ${user.wallet} coins\n🏦 Bank: ${bank}/${bankSpace}\n⭐ Perk: ${perk}`
     );
   },
 };
