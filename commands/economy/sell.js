@@ -1,98 +1,83 @@
 const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
-// 💰 SELL VALUES
-const prices = {
-  "baking equipment": 2500,
-  "gun": 5000,
-  "rifle": 12500,
-  "streaming equipment": 10000,
-  "games": 5000,
-  "ski masks": 50,
-};
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("sell")
-    .setDescription("💰 Sell items or goods")
+    .setDescription("💰 Sell items")
+
+    // 🔥 DROPDOWN FIX (THIS IS WHAT YOU WANTED)
     .addStringOption(option =>
-      option
-        .setName("item")
-        .setDescription("Item to sell")
+      option.setName("item")
+        .setDescription("Choose item to sell")
         .setRequired(true)
+        .addChoices(
+          { name: "Cake", value: "cake" },
+          { name: "Fish", value: "fish" },
+          { name: "Animal", value: "animal" },
+          { name: "Giftcard", value: "giftcard" },
+          { name: "Baking Equipment", value: "baking equipment" },
+          { name: "Gun", value: "gun" },
+          { name: "Rifle", value: "rifle" },
+          { name: "Streaming Equipment", value: "streaming equipment" },
+          { name: "Games", value: "games" },
+          { name: "Ski Masks", value: "ski masks" }
+        )
     ),
 
   async execute(interaction) {
-
-    const item = interaction.options.getString("item").toLowerCase();
+    const item = interaction.options.getString("item");
     const user = await User.getUser(interaction.user.id);
 
-    let totalValue = 0;
-    let totalAmount = 0;
+    let total = 0;
 
-    // =========================
-    // ⭐ GOODS SYSTEM (cake, fish, etc)
-    // =========================
-    if (user.goods && user.goods[item] !== undefined) {
+    // ================= GOODS =================
+    if (user.goods[item]) {
+      const amount = user.goods[item];
 
-      totalAmount = user.goods[item];
+      if (amount <= 0)
+        return interaction.reply("❌ You don't have this item");
 
-      if (totalAmount <= 0) {
-        return interaction.reply(`❌ You don't have any ${item}`);
-      }
+      const priceMap = {
+        cake: 10,
+        fish: 100,
+        animal: 100,
+        giftcard: 10,
+      };
 
-      if (item === "cake") {
-        totalValue = totalAmount * (Math.floor(Math.random() * 1991) + 10);
-      }
+      total = amount * (priceMap[item] || 0);
 
-      if (item === "fish") {
-        totalValue = totalAmount * (Math.floor(Math.random() * 901) + 100);
-      }
-
-      if (item === "animal") {
-        totalValue = totalAmount * (Math.floor(Math.random() * 9901) + 100);
-      }
-
-      if (item === "giftcard") {
-        totalValue = totalAmount * 10;
-      }
-
-      user.wallet += totalValue;
+      user.wallet += total;
       user.goods[item] = 0;
 
-      user.markModified("goods");
       await user.save();
 
-      return interaction.reply(
-        `💰 Sold ALL ${item} (${totalAmount}x) for ${totalValue} coins`
-      );
+      return interaction.reply(`💰 Sold ALL ${item} for ${total} coins`);
     }
 
-    // =========================
-    // ⭐ ARRAY INVENTORY SYSTEM
-    // =========================
+    // ================= INVENTORY =================
     const inv = user.inventory || [];
-    const existing = inv.find(i => i.item === item);
+    const found = inv.find(i => i.item === item);
 
-    if (!existing || existing.amount <= 0) {
+    if (!found || found.amount <= 0)
       return interaction.reply("❌ You don't own this item");
-    }
 
-    totalAmount = existing.amount;
-    const price = prices[item] || 0;
+    const prices = {
+      "baking equipment": 2500,
+      gun: 5000,
+      rifle: 12500,
+      "streaming equipment": 10000,
+      games: 5000,
+      "ski masks": 50,
+    };
 
-    totalValue = price * totalAmount;
+    total = found.amount * (prices[item] || 0);
 
-    // remove item completely
+    user.wallet += total;
     user.inventory = inv.filter(i => i.item !== item);
 
-    user.wallet += totalValue;
-
-    user.markModified("inventory");
     await user.save();
 
-    return interaction.reply(
-      `💰 Sold ALL ${item} (${totalAmount}x) for ${totalValue} coins`
-    );
+    return interaction.reply(`💰 Sold ALL ${item} for ${total} coins`);
   },
 };
