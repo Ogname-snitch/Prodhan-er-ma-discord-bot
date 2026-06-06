@@ -9,17 +9,17 @@ const userSchema = new mongoose.Schema({
 
   wallet: { type: Number, default: 0 },
 
-  lastDaily: Number,
-  lastWork: Number,
-  lastBeg: Number,
-  lastSteal: Number,
+  lastDaily: { type: Number, default: 0 },
+  lastWork: { type: Number, default: 0 },
+  lastBeg: { type: Number, default: 0 },
+  lastSteal: { type: Number, default: 0 },
 
-  lastBake: Number,
-  lastHunt: Number,
-  lastFish: Number,
-  lastStream: Number,
-  lastScam: Number,
-  lastBankRob: Number,
+  lastBake: { type: Number, default: 0 },
+  lastHunt: { type: Number, default: 0 },
+  lastFish: { type: Number, default: 0 },
+  lastStream: { type: Number, default: 0 },
+  lastScam: { type: Number, default: 0 },
+  lastBankRob: { type: Number, default: 0 },
 
   bankJailUntil: { type: Number, default: 0 },
 
@@ -55,6 +55,10 @@ userSchema.statics.getUser = async function (id) {
       goods: {},
       bank: 0,
       bankSpace: 1000,
+      perk: "None",
+      perkClaimed: false,
+      jailUntil: 0,
+      bankJailUntil: 0,
     });
   }
 

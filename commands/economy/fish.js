@@ -3,13 +3,94 @@ const User = require("../../utils/database");
 
 const cooldown = 20000;
 
+// ================= FISH TABLE =================
+const fishTable = [
+  // Trash (20%)
+  { name: "Old Boot", emoji: "🥾", rarity: "Trash", chance: 20, value: 200 },
+  { name: "Seaweed", emoji: "🌿", rarity: "Trash", chance: 20, value: 200 },
+  { name: "Plastic Bottle", emoji: "🍾", rarity: "Trash", chance: 20, value: 200 },
+  { name: "Soggy Cardboard", emoji: "📦", rarity: "Trash", chance: 20, value: 200 },
+  { name: "Rusty Tin Can", emoji: "🥫", rarity: "Trash", chance: 20, value: 300 },
+  { name: "Tangled Fishing Line", emoji: "🧵", rarity: "Trash", chance: 20, value: 400 },
+
+  // Common (30%)
+  { name: "Goldfish", emoji: "🐠", rarity: "Common", chance: 30, value: 1000 },
+  { name: "Shrimp", emoji: "🦐", rarity: "Common", chance: 30, value: 1500 },
+  { name: "Bass", emoji: "🐟", rarity: "Common", chance: 30, value: 1500 },
+  { name: "Salmon", emoji: "🍣", rarity: "Common", chance: 30, value: 2000 },
+  { name: "Sardine", emoji: "🐟", rarity: "Common", chance: 30, value: 2500 },
+  { name: "Trout", emoji: "🐟", rarity: "Common", chance: 30, value: 2500 },
+
+  // Uncommon (20%)
+  { name: "Pufferfish", emoji: "🐡", rarity: "Uncommon", chance: 20, value: 2500 },
+  { name: "Electric Eel", emoji: "🐍", rarity: "Uncommon", chance: 20, value: 3000 },
+  { name: "Hammerhead Shark", emoji: "🦈", rarity: "Uncommon", chance: 20, value: 4000 },
+  { name: "Octopus", emoji: "🐙", rarity: "Uncommon", chance: 20, value: 5000 },
+  { name: "Clownfish", emoji: "🤡", rarity: "Uncommon", chance: 20, value: 5000 },
+  { name: "Stingray", emoji: "🥞", rarity: "Uncommon", chance: 20, value: 5500 },
+
+  // Rare (15%)
+  { name: "Swordfish", emoji: "🗡️", rarity: "Rare", chance: 15, value: 7000 },
+  { name: "Giant Squid", emoji: "🦑", rarity: "Rare", chance: 15, value: 8000 },
+  { name: "Blobfish", emoji: "🫠", rarity: "Rare", chance: 15, value: 8000 },
+  { name: "Golden Carp", emoji: "🪙", rarity: "Rare", chance: 15, value: 9000 },
+  { name: "Rainbow Trout", emoji: "🌈", rarity: "Rare", chance: 15, value: 10000 },
+
+  // Epic (10%)
+  { name: "Lionfish", emoji: "🦁", rarity: "Epic", chance: 10, value: 10000 },
+  { name: "Anglerfish", emoji: "💡", rarity: "Epic", chance: 10, value: 10000 },
+  { name: "Tiger Shark", emoji: "🐯", rarity: "Epic", chance: 10, value: 11000 },
+  { name: "Manta Ray", emoji: "🦇", rarity: "Epic", chance: 10, value: 11000 },
+  { name: "Narwhal", emoji: "🦄", rarity: "Epic", chance: 10, value: 12000 },
+
+  // Legendary (3%)
+  { name: "Great White Shark", emoji: "🦈", rarity: "Legendary", chance: 3, value: 30000 },
+  { name: "The Loch Ness Monster", emoji: "🦕", rarity: "Legendary", chance: 3, value: 50000 },
+  { name: "Megaladon Shark", emoji: "🦈", rarity: "Legendary", chance: 3, value: 70000 },
+  { name: "Ancient Coelacanth", emoji: "🐟", rarity: "Legendary", chance: 3, value: 80000 },
+
+  // Mythic (1.5%)
+  { name: "Kraken Core", emoji: "👑", rarity: "Mythic", chance: 1.5, value: 100000 },
+  { name: "Leviathan Scales", emoji: "🐉", rarity: "Mythic", chance: 1.5, value: 110000 },
+  { name: "Cthulhu's Left Tentacle", emoji: "🦑", rarity: "Mythic", chance: 1.5, value: 120000 },
+  { name: "Poseidon's Trident Fragment", emoji: "🔱", rarity: "Mythic", chance: 1.5, value: 150000 },
+
+  // Vent (rare meme tier)
+  { name: "Prodhan's Cuck Chair", emoji: "🪑", rarity: "Vent", chance: 0.5, value: 800000 },
+  { name: "Zarif's Left Testicle", emoji: "🪀", rarity: "Vent", chance: 0.5, value: 850000 },
+  { name: "Omar's Skateboard", emoji: "🛹", rarity: "Vent", chance: 0.5, value: 900000 },
+  { name: "Mashrib's Crush List", emoji: "📋", rarity: "Vent", chance: 0.5, value: 950000 },
+  { name: "Shayan's Broken Hand", emoji: "🦾", rarity: "Vent", chance: 0.5, value: 975000 },
+  { name: "Suhaib's ISP", emoji: "📡", rarity: "Vent", chance: 0.5, value: 1000000 },
+  { name: "Johan's Soulmate", emoji: "👭", rarity: "Vent", chance: 0.5, value: 1500000 },
+  { name: "Yean's Guitar", emoji: "🎸", rarity: "Vent", chance: 0.5, value: 1750000 },
+  { name: "Tuhid's Screenshots", emoji: "📂", rarity: "Vent", chance: 0.5, value: 2000000 },
+];
+
+// ================= PICK FUNCTION =================
+function getRandomFish() {
+  const pool = fishTable;
+
+  let roll = Math.random() * 100;
+  let selected = pool[Math.floor(Math.random() * pool.length)];
+
+  // bias toward rarity chance (simple weighted filter)
+  for (let i = 0; i < 5; i++) {
+    const f = pool[Math.floor(Math.random() * pool.length)];
+    if (Math.random() * 100 < f.chance) {
+      selected = f;
+    }
+  }
+
+  return selected;
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("fish")
     .setDescription("🐟 Go fishing"),
 
   async execute(interaction) {
-
     const user = await User.getUser(interaction.user.id);
     const now = Date.now();
 
@@ -26,17 +107,29 @@ module.exports = {
       return interaction.reply("❌ You need a fishing rod");
     }
 
-    const existing = user.inventory.find(i => i.item === "fish");
+    const fish = getRandomFish();
+
+    const existing = user.inventory.find(
+      i => i.item === fish.name
+    );
 
     if (existing) {
       existing.amount += 1;
     } else {
-      user.inventory.push({ item: "fish", amount: 1 });
+      user.inventory.push({
+        item: fish.name,
+        amount: 1,
+        value: fish.value, // IMPORTANT FIX
+      });
     }
 
     user.lastFish = now;
+    user.markModified("inventory");
+
     await user.save();
 
-    return interaction.reply("🐟 You caught a fish");
+    return interaction.reply(
+      `🐟 You caught **${fish.emoji} ${fish.name}** (${fish.rarity}) worth ${fish.value} coins`
+    );
   },
 };
