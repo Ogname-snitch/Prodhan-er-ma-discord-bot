@@ -5,8 +5,6 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("sell")
     .setDescription("💰 Sell items from your inventory")
-
-    // ❗ We cannot use dynamic dropdowns in Discord
     .addStringOption(option =>
       option
         .setName("item")
@@ -15,22 +13,28 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const item = interaction.options.getString("item").toLowerCase();
+    const input = interaction.options.getString("item").toLowerCase();
     const user = await User.getUser(interaction.user.id);
 
     const inv = user.inventory || [];
 
-    const found = inv.find(i => i.item.toLowerCase() === item);
+    const found = inv.find(i => i.item.toLowerCase() === input);
 
     if (!found || found.amount <= 0) {
       return interaction.reply("❌ You don't own this item");
     }
 
-    let total = 0;
     const amount = found.amount;
 
-    // 🎣 FISH PRICES (your full system)
+    // ================= FISH PRICES =================
     const fishPrices = {
+      "old boot": 200,
+      "seaweed": 200,
+      "plastic bottle": 200,
+      "soggy cardboard": 200,
+      "rusty tin can": 300,
+      "tangled fishing line": 400,
+
       "goldfish": 1000,
       "shrimp": 1500,
       "bass": 1500,
@@ -78,7 +82,7 @@ module.exports = {
       "tuhid's screenshots folder": 2000000,
     };
 
-    // 🧰 NORMAL ITEMS
+    // ================= NORMAL ITEMS =================
     const itemPrices = {
       "baking equipment": 2500,
       "gun": 5000,
@@ -88,24 +92,23 @@ module.exports = {
       "ski masks": 50,
     };
 
-    const key = item.toLowerCase();
+    const key = input;
 
-    if (fishPrices[key]) {
-      total = amount * fishPrices[key];
-    } else if (itemPrices[key]) {
-      total = amount * itemPrices[key];
-    } else {
+    let price = fishPrices[key] || itemPrices[key];
+
+    if (!price) {
       return interaction.reply("❌ This item has no sell value");
     }
 
-    // remove item
+    const total = amount * price;
+
     user.inventory = inv.filter(i => i.item.toLowerCase() !== key);
     user.wallet += total;
 
     await user.save();
 
     return interaction.reply(
-      `💰 Sold ALL ${item} (${amount}x) for ${total} coins`
+      `💰 Sold ALL ${input} (${amount}x) for ${total} coins`
     );
   },
 };

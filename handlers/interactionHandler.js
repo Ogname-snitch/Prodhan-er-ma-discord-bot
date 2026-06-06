@@ -1,4 +1,5 @@
 const { Events } = require("discord.js");
+const User = require("../../utils/database"); // ✅ ADDED (needed for autocomplete)
 
 module.exports = (client) => {
   client.on(Events.InteractionCreate, async (interaction) => {
@@ -11,20 +12,8 @@ module.exports = (client) => {
       const command = client.commands.get(interaction.commandName);
 
       if (!command) {
-        console.log("❌ Command not found:", interaction.commandName);
-        console.log("📦 Available commands:", [...client.commands.keys()]);
-
         return interaction.reply({
           content: "❌ Command not found",
-          ephemeral: true,
-        });
-      }
-
-      if (typeof command.execute !== "function") {
-        console.log(`❌ Command missing execute(): ${interaction.commandName}`);
-
-        return interaction.reply({
-          content: "❌ Command misconfigured (no execute function)",
           ephemeral: true,
         });
       }
@@ -32,16 +21,16 @@ module.exports = (client) => {
       try {
         await command.execute(interaction, client);
       } catch (err) {
-        console.log(`❌ Command Error (${interaction.commandName}):`, err);
+        console.log(`❌ Error in ${interaction.commandName}:`, err);
 
         if (interaction.replied || interaction.deferred) {
           await interaction.followUp({
-            content: "❌ Error while executing command",
+            content: "❌ Error executing command",
             ephemeral: true,
           });
         } else {
           await interaction.reply({
-            content: "❌ Error while executing command",
+            content: "❌ Error executing command",
             ephemeral: true,
           });
         }
@@ -49,120 +38,114 @@ module.exports = (client) => {
     }
 
     // =========================
-    // BUTTONS ROUTER (FIXED)
+    // AUTOCOMPLETE (FIXED + SAFE)
     // =========================
-    if (interaction.isButton()) {
+    if (interaction.isAutocomplete()) {
+      try {
+        const user = await User.getUser(interaction.user.id);
 
-      // =========================
-      // 🏦 BANKROB SYSTEM (NEW FIX)
-      // =========================
-      if (
-        interaction.customId === "accept_bankrob" ||
-        interaction.customId === "decline_bankrob"
-      ) {
+        const focused = interaction.options.getFocused().toLowerCase();
+        const items = user.inventory || [];
 
-        // Let bankrob command handle it via collector
-        // (IMPORTANT: do NOT send "no blackjack game")
+        const choices = items
+          .map(i => i.item)
+          .filter(i => i && i.toLowerCase().includes(focused))
+          .slice(0, 25);
 
-        return; // stop here so blackjack doesn't catch it
+        return interaction.respond(
+          choices.map(c => ({ name: c, value: c }))
+        );
+      } catch (err) {
+        console.log("❌ Autocomplete error:", err);
+        return;
+      }
+    }
+
+    // =========================
+    // BUTTONS (BLACKJACK SAFE)
+    // =========================
+    if (!interaction.isButton()) return;
+
+    if (interaction.customId === "hit" || interaction.customId === "stand") {
+
+      const blackjack = client.commands.get("blackjack");
+
+      if (!blackjack) return;
+
+      const game = blackjack.games?.get(interaction.user.id);
+
+      if (!game) {
+        return interaction.reply({
+          content: "❌ No blackjack game",
+          ephemeral: true,
+        });
       }
 
+      const user = await blackjack.getUser(interaction.user.id);
+
+      const p = game.player;
+      const d = game.dealer;
+
       // =========================
-      // 🃏 BLACKJACK SYSTEM (UNCHANGED)
+      // HIT
       // =========================
-      if (
-        interaction.customId === "hit" ||
-        interaction.customId === "stand"
-      ) {
+      if (interaction.customId === "hit") {
 
-        const blackjack = client.commands.get("blackjack");
+        p.push(blackjack.draw());
 
-        if (!blackjack) {
-          console.log("❌ Blackjack command not found in collection");
-          return;
-        }
-
-        const game = blackjack.games?.get(interaction.user.id);
-
-        if (!game) {
-          return interaction.reply({
-            content: "❌ No blackjack game",
-            ephemeral: true,
-          });
-        }
-
-        let user;
-        try {
-          user = await blackjack.getUser(interaction.user.id);
-        } catch (err) {
-          console.log("❌ DB error in blackjack:", err);
-
-          return interaction.reply({
-            content: "❌ Database error",
-            ephemeral: true,
-          });
-        }
-
-        const p = game.player;
-        const d = game.dealer;
-
-        // HIT
-        if (interaction.customId === "hit") {
-
-          p.push(blackjack.draw());
-
-          if (blackjack.sum(p) > 21) {
-
-            blackjack.games.delete(interaction.user.id);
-
-            user.wallet -= game.bet;
-            await user.save();
-
-            return interaction.update({
-              content: `💥 Bust! You lost ${game.bet} coins`,
-              components: [],
-            });
-          }
-
-          return interaction.update({
-            content: `🃏 You: ${blackjack.sum(p)} | Dealer: ${d[0]}`,
-            components: interaction.message.components,
-          });
-        }
-
-        // STAND
-        if (interaction.customId === "stand") {
-
-          while (blackjack.sum(d) < 17) {
-            d.push(blackjack.draw());
-          }
-
-          const ps = blackjack.sum(p);
-          const ds = blackjack.sum(d);
+        if (blackjack.sum(p) > 21) {
 
           blackjack.games.delete(interaction.user.id);
 
-          let result = "";
-
-          if (ds > 21 || ps > ds) {
-            user.wallet += game.bet;
-            result = `🎉 You won ${game.bet} coins`;
-
-          } else if (ps < ds) {
-            user.wallet -= game.bet;
-            result = `💀 You lost ${game.bet} coins`;
-
-          } else {
-            result = "🤝 Tie";
-          }
-
+          user.wallet -= game.bet;
           await user.save();
 
           return interaction.update({
-            content: `🃏 You: ${ps} | Dealer: ${ds}\n${result}`,
+            content: `💥 Bust! You lost ${game.bet} coins`,
             components: [],
           });
         }
+
+        return interaction.update({
+          content: `🃏 You: ${blackjack.sum(p)} | Dealer: ${d[0]}`,
+          components: interaction.message.components,
+        });
+      }
+
+      // =========================
+      // STAND
+      // =========================
+      if (interaction.customId === "stand") {
+
+        while (blackjack.sum(d) < 17) {
+          d.push(blackjack.draw());
+        }
+
+        const ps = blackjack.sum(p);
+        const ds = blackjack.sum(d);
+
+        blackjack.games.delete(interaction.user.id);
+
+        let result = "";
+
+        if (ds > 21 || ps > ds) {
+          user.wallet += game.bet;
+          result = `🎉 You won ${game.bet} coins`;
+
+        } else if (ps < ds) {
+          user.wallet -= game.bet;
+          result = `💀 You lost ${game.bet} coins`;
+
+        } else {
+          result = "🤝 Tie";
+        }
+
+        await user.save();
+
+        return interaction.update({
+          content: `🃏 You: ${ps} | Dealer: ${ds}\n${result}`,
+          components: [],
+        });
       }
     }
   });
