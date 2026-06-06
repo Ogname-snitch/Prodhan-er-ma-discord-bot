@@ -8,77 +8,17 @@ const {
 
 const User = require("../../utils/database");
 
-// 💰 PRICE TABLES
-const fishPrices = {
-  "old boot": 200,
-  seaweed: 200,
-  "plastic bottle": 200,
-  "soggy cardboard": 200,
-  "rusty tin can": 300,
-  "tangled fishing line": 400,
-
-  goldfish: 1000,
-  shrimp: 1500,
-  bass: 1500,
-  salmon: 2000,
-  sardine: 2500,
-  trout: 2500,
-
-  pufferfish: 2500,
-  "electric eel": 3000,
-  "hammerhead shark": 4000,
-  octopus: 5000,
-  clownfish: 5000,
-  stingray: 5500,
-
-  swordfish: 7000,
-  "giant squid": 8000,
-  blobfish: 8000,
-  "golden carp": 9000,
-  "rainbow trout": 10000,
-
-  lionfish: 10000,
-  anglerfish: 10000,
-  "tiger shark": 11000,
-  "manta ray": 11000,
-  narwhal: 12000,
-
-  "great white shark": 30000,
-  "the loch ness monster": 50000,
-  "megaladon shark": 70000,
-  "ancient coelacanth": 80000,
-
-  "kraken core": 100000,
-  "leviathan scales": 110000,
-  "cthulhu's left tentacle": 120000,
-  "poseidon's trident fragment": 150000,
-
-  "prodhan's cuck chair": 800000,
-  "zarif's left testicle": 850000,
-  "omar's skateboard": 900000,
-  "mashrib's crush list": 950000,
-  "shayan's broken hand": 975000,
-  "suhaib's isp": 1000000,
-  "johan's soulmate": 1500000,
-  "yean's broken guitar": 1750000,
-  "tuhid's screenshots folder": 2000000,
-};
-
-const itemPrices = {
-  "baking equipment": 2500,
-  gun: 5000,
-  rifle: 12500,
-  "streaming equipment": 10000,
-  games: 5000,
-  "ski masks": 50,
-};
+// prices
+const fishPrices = { /* keep yours unchanged */ };
+const itemPrices = { /* keep yours unchanged */ };
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("sell")
-    .setDescription("💰 Sell items from your inventory (UI menu)"),
+    .setDescription("💰 Sell items from inventory"),
 
   async execute(interaction) {
+
     const user = await User.getUser(interaction.user.id);
     const inv = user.inventory || [];
 
@@ -86,8 +26,7 @@ module.exports = {
       return interaction.reply("❌ Your inventory is empty");
     }
 
-    // create buttons from inventory
-    const buttons = inv.slice(0, 20).map((i) =>
+    const buttons = inv.slice(0, 20).map(i =>
       new ButtonBuilder()
         .setCustomId(`sell_${i.item}`)
         .setLabel(`${i.item} (${i.amount})`)
@@ -96,58 +35,58 @@ module.exports = {
 
     const rows = [];
     for (let i = 0; i < buttons.length; i += 5) {
-      rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
+      rows.push(
+        new ActionRowBuilder().addComponents(buttons.slice(i, i + 5))
+      );
     }
 
-    const embed = new EmbedBuilder()
-      .setTitle("💰 Sell Menu")
-      .setDescription("Click an item below to sell it instantly");
-
-    await interaction.reply({
-      embeds: [embed],
+    return interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("💰 Sell Menu")
+          .setDescription("Click an item to sell it")
+      ],
       components: rows,
     });
   },
-};
 
-// ===================== BUTTON HANDLER EXPORT =====================
-// (used inside interactionHandler.js)
-module.exports.sellHandler = async (interaction, User) => {
-  if (!interaction.customId.startsWith("sell_")) return;
+  // IMPORTANT: BUTTON HANDLER
+  sellHandler: async (interaction, User) => {
 
-  const item = interaction.customId.replace("sell_", "");
-  const user = await User.getUser(interaction.user.id);
-  const inv = user.inventory || [];
+    const item = interaction.customId.replace("sell_", "");
+    const user = await User.getUser(interaction.user.id);
+    const inv = user.inventory || [];
 
-  const found = inv.find((i) => i.item === item);
+    const found = inv.find(i => i.item === item);
 
-  if (!found || found.amount <= 0) {
+    if (!found) {
+      return interaction.reply({
+        content: "❌ You don't own this item",
+        ephemeral: true,
+      });
+    }
+
+    const amount = found.amount;
+
+    let price = fishPrices[item] || itemPrices[item];
+
+    if (!price) {
+      return interaction.reply({
+        content: "❌ This item has no sell value",
+        ephemeral: true,
+      });
+    }
+
+    const total = amount * price;
+
+    user.wallet += total;
+    user.inventory = inv.filter(i => i.item !== item);
+
+    await user.save();
+
     return interaction.reply({
-      content: "❌ You don't own this item",
+      content: `💰 Sold **${item}** (${amount}x) for **${total} coins**`,
       ephemeral: true,
     });
-  }
-
-  const amount = found.amount;
-
-  let price = fishPrices[item] || itemPrices[item];
-
-  if (!price) {
-    return interaction.reply({
-      content: "❌ This item has no sell value",
-      ephemeral: true,
-    });
-  }
-
-  const total = amount * price;
-
-  user.inventory = inv.filter((i) => i.item !== item);
-  user.wallet += total;
-
-  await user.save();
-
-  return interaction.reply({
-    content: `💰 Sold ALL **${item}** (${amount}x) for **${total} coins**`,
-    ephemeral: true,
-  });
+  },
 };

@@ -1,144 +1,107 @@
 const { Events } = require("discord.js");
 
-// =========================
-// SAFE DATABASE IMPORT
-// =========================
-let User = null;
-
-try {
-  User = require("../utils/database");
-} catch (err) {
-  console.log("❌ DATABASE LOAD FAILED:", err);
-}
-
-// =========================
-// GLOBAL CRASH PROTECTION
-// =========================
-process.on("unhandledRejection", (err) => {
-  console.log("❌ UNHANDLED REJECTION:", err);
-});
-
-process.on("uncaughtException", (err) => {
-  console.log("❌ UNCAUGHT EXCEPTION:", err);
-});
+// safe import
+const User = require("../utils/database");
 
 module.exports = (client) => {
   client.on(Events.InteractionCreate, async (interaction) => {
 
-    try {
+    // =========================
+    // SLASH COMMANDS
+    // =========================
+    if (interaction.isChatInputCommand()) {
 
-      console.log("INTERACTION:", interaction.type, interaction.commandName || interaction.customId);
+      const command = client.commands.get(interaction.commandName);
 
-      // =========================
-      // SLASH COMMANDS
-      // =========================
-      if (interaction.isChatInputCommand()) {
+      if (!command) {
+        return interaction.reply({
+          content: "❌ Command not found",
+          ephemeral: true,
+        }).catch(() => {});
+      }
 
-        const command = client.commands.get(interaction.commandName);
+      try {
+        await command.execute(interaction, client);
+      } catch (err) {
+        console.log("❌ Slash command error:", err);
 
-        if (!command) {
-          return interaction.reply({
-            content: "❌ Command not found",
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({
+            content: "❌ Error executing command",
             ephemeral: true,
           }).catch(() => {});
-        }
-
-        try {
-          await command.execute(interaction, client);
-        } catch (err) {
-          console.log(`❌ COMMAND ERROR (${interaction.commandName}):`, err);
-
-          return interaction.reply({
+        } else {
+          await interaction.reply({
             content: "❌ Error executing command",
             ephemeral: true,
           }).catch(() => {});
         }
       }
+    }
 
-      // =========================
-      // AUTOCOMPLETE (100% SAFE)
-      // =========================
-      if (interaction.isAutocomplete()) {
+    // =========================
+    // AUTOCOMPLETE
+    // =========================
+    if (interaction.isAutocomplete()) {
+      try {
+        const user = await User.getUser(interaction.user.id);
 
+        const focused = interaction.options.getFocused().toLowerCase();
+        const items = user.inventory || [];
+
+        const choices = items
+          .map(i => i.item)
+          .filter(i => i && i.toLowerCase().includes(focused))
+          .slice(0, 25);
+
+        return interaction.respond(
+          choices.map(c => ({ name: c, value: c }))
+        );
+      } catch (err) {
+        console.log("❌ Autocomplete error:", err);
+      }
+    }
+
+    // =========================
+    // BUTTONS (IMPORTANT FIX HERE)
+    // =========================
+    if (interaction.isButton()) {
+
+      // ================= SELL SYSTEM =================
+      const sellCommand = client.commands.get("sell");
+
+      if (sellCommand?.sellHandler) {
         try {
-          if (!User) return interaction.respond([]);
-
-          const user = await User.getUser(interaction.user.id);
-
-          const focused = interaction.options.getFocused();
-          const items = user?.inventory || [];
-
-          const choices = items
-            .map(i => i?.item)
-            .filter(Boolean)
-            .filter(i =>
-              i.toLowerCase().includes((focused || "").toLowerCase())
-            )
-            .slice(0, 25);
-
-          return interaction.respond(
-            choices.map(i => ({
-              name: i,
-              value: i,
-            }))
-          );
-
+          return await sellCommand.sellHandler(interaction, User);
         } catch (err) {
-          console.log("❌ AUTOCOMPLETE ERROR:", err);
-          return interaction.respond([]).catch(() => {});
+          console.log("❌ Sell handler error:", err);
+
+          return interaction.reply({
+            content: "❌ Sell failed",
+            ephemeral: true,
+          }).catch(() => {});
         }
       }
 
-      // =========================
-      // BUTTONS
-      // =========================
-      if (!interaction.isButton()) return;
-
-      // =========================
-      // BLACKJACK SYSTEM SAFE
-      // =========================
+      // ================= BLACKJACK =================
       if (interaction.customId === "hit" || interaction.customId === "stand") {
 
         const blackjack = client.commands.get("blackjack");
-        if (!blackjack) {
-          return interaction.reply({
-            content: "❌ Blackjack not loaded",
-            ephemeral: true,
-          }).catch(() => {});
-        }
+        if (!blackjack) return;
 
         const game = blackjack.games?.get(interaction.user.id);
+        if (!game) return;
 
-        if (!game) {
-          return interaction.reply({
-            content: "❌ No blackjack game",
-            ephemeral: true,
-          }).catch(() => {});
-        }
-
-        let user;
-
-        try {
-          user = await blackjack.getUser(interaction.user.id);
-        } catch (err) {
-          console.log("❌ BLACKJACK DB ERROR:", err);
-
-          return interaction.reply({
-            content: "❌ Database error",
-            ephemeral: true,
-          }).catch(() => {});
-        }
+        const user = await blackjack.getUser(interaction.user.id);
 
         const p = game.player;
         const d = game.dealer;
 
-        // ================= HIT =================
         if (interaction.customId === "hit") {
 
           p.push(blackjack.draw());
 
           if (blackjack.sum(p) > 21) {
-
             blackjack.games.delete(interaction.user.id);
 
             user.wallet -= game.bet;
@@ -156,7 +119,6 @@ module.exports = (client) => {
           }).catch(() => {});
         }
 
-        // ================= STAND =================
         if (interaction.customId === "stand") {
 
           while (blackjack.sum(d) < 17) {
@@ -187,19 +149,6 @@ module.exports = (client) => {
             components: [],
           }).catch(() => {});
         }
-      }
-
-    } catch (err) {
-      console.log("❌ GLOBAL HANDLER CRASH:", err);
-
-      // LAST RESORT SAFETY
-      if (!interaction.replied && !interaction.deferred) {
-        try {
-          await interaction.reply({
-            content: "❌ Something went wrong",
-            ephemeral: true,
-          });
-        } catch {}
       }
     }
   });
