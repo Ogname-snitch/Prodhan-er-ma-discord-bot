@@ -1,5 +1,5 @@
 const { Events } = require("discord.js");
-const User = require("../../utils/database"); // ✅ ADDED (needed for autocomplete)
+const User = require("../utils/database"); // ✅ ADDED (needed for autocomplete)
 
 module.exports = (client) => {
   client.on(Events.InteractionCreate, async (interaction) => {
