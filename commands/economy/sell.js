@@ -4,33 +4,23 @@ const User = require("../../utils/database");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("sell")
-    .setDescription("💰 Sell items")
+    .setDescription("💰 Sell items from your inventory")
+
+    // ❗ We cannot use dynamic dropdowns in Discord
     .addStringOption(option =>
-      option.setName("item")
-        .setDescription("Choose item to sell")
+      option
+        .setName("item")
+        .setDescription("Type the item you want to sell")
         .setRequired(true)
-        .addChoices(
-          { name: "Fish", value: "fish" },
-          { name: "Cake", value: "cake" },
-          { name: "Animal", value: "animal" },
-          { name: "Giftcard", value: "giftcard" },
-          { name: "Baking Equipment", value: "baking equipment" },
-          { name: "Gun", value: "gun" },
-          { name: "Rifle", value: "rifle" },
-          { name: "Streaming Equipment", value: "streaming equipment" },
-          { name: "Games", value: "games" },
-          { name: "Ski Masks", value: "ski masks" }
-        )
     ),
 
   async execute(interaction) {
-
-    const item = interaction.options.getString("item");
+    const item = interaction.options.getString("item").toLowerCase();
     const user = await User.getUser(interaction.user.id);
 
     const inv = user.inventory || [];
 
-    const found = inv.find(i => i.item === item);
+    const found = inv.find(i => i.item.toLowerCase() === item);
 
     if (!found || found.amount <= 0) {
       return interaction.reply("❌ You don't own this item");
@@ -39,56 +29,77 @@ module.exports = {
     let total = 0;
     const amount = found.amount;
 
-    // ================= RANDOM VALUE SYSTEM =================
+    // 🎣 FISH PRICES (your full system)
+    const fishPrices = {
+      "goldfish": 1000,
+      "shrimp": 1500,
+      "bass": 1500,
+      "salmon": 2000,
+      "sardine": 2500,
+      "trout": 2500,
 
-    if (item === "fish") {
-      for (let i = 0; i < amount; i++) {
-        total += Math.floor(Math.random() * 501) + 100; // 100–600
-      }
-    }
+      "pufferfish": 2500,
+      "electric eel": 3000,
+      "hammerhead shark": 4000,
+      "octopus": 5000,
+      "clownfish": 5000,
+      "stingray": 5500,
 
-    else if (item === "cake") {
-      for (let i = 0; i < amount; i++) {
-        total += Math.floor(Math.random() * 2001) + 1000; // 1000–3000
-      }
-    }
+      "swordfish": 7000,
+      "giant squid": 8000,
+      "blobfish": 8000,
+      "golden carp": 9000,
+      "rainbow trout": 10000,
 
-    else if (item === "animal") {
-      for (let i = 0; i < amount; i++) {
-        total += Math.floor(Math.random() * 5001) + 2000; // 2000–7000
-      }
-    }
+      "lionfish": 10000,
+      "anglerfish": 10000,
+      "tiger shark": 11000,
+      "manta ray": 11000,
+      "narwhal": 12000,
 
-    else if (item === "giftcard") {
-      for (let i = 0; i < amount; i++) {
-        total += Math.floor(Math.random() * 991) + 10; // 10–1000
-      }
-    }
+      "great white shark": 30000,
+      "the loch ness monster": 50000,
+      "megaladon shark": 70000,
+      "ancient coelacanth": 80000,
 
-    // ================= NORMAL ITEMS =================
+      "kraken core": 100000,
+      "leviathan scales": 110000,
+      "cthulhu's left tentacle": 120000,
+      "poseidon's trident fragment": 150000,
 
-    else {
-      const prices = {
-        "baking equipment": 2500,
-        gun: 5000,
-        rifle: 12500,
-        "streaming equipment": 10000,
-        games: 5000,
-        "ski masks": 50,
-      };
+      "prodhan's cuck chair": 800000,
+      "zarif's left testicle": 850000,
+      "omar's skateboard": 900000,
+      "mashrib's crush list": 950000,
+      "shayan's broken hand": 975000,
+      "suhaib's isp": 1000000,
+      "johan's soulmate": 1500000,
+      "yean's broken guitar": 1750000,
+      "tuhid's screenshots folder": 2000000,
+    };
 
-      const price = prices[item];
+    // 🧰 NORMAL ITEMS
+    const itemPrices = {
+      "baking equipment": 2500,
+      "gun": 5000,
+      "rifle": 12500,
+      "streaming equipment": 10000,
+      "games": 5000,
+      "ski masks": 50,
+    };
 
-      if (!price) {
-        return interaction.reply("❌ This item has no sell value");
-      }
+    const key = item.toLowerCase();
 
-      total = amount * price;
+    if (fishPrices[key]) {
+      total = amount * fishPrices[key];
+    } else if (itemPrices[key]) {
+      total = amount * itemPrices[key];
+    } else {
+      return interaction.reply("❌ This item has no sell value");
     }
 
     // remove item
-    user.inventory = inv.filter(i => i.item !== item);
-
+    user.inventory = inv.filter(i => i.item.toLowerCase() !== key);
     user.wallet += total;
 
     await user.save();
