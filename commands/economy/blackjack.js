@@ -8,8 +8,7 @@ const {
 
 const User = require("../../utils/database");
 
-global.blackjackGames = global.blackjackGames || new Map();
-const games = global.blackjackGames;
+const games = new Map();
 
 function draw() {
   return Math.floor(Math.random() * 11) + 1;
@@ -26,10 +25,6 @@ const vibes = [
   "🔥 Luck is bending reality...",
   "🎲 Fortune is watching you closely...",
 ];
-
-// 🎰 LUIGI CASINO GIF (converted usable format)
-const LUIGI_GIF =
-  "https://media.tenor.com/5c0q6qv5Qv0AAAAC/luigi-casino.gif";
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -99,7 +94,7 @@ module.exports = {
           `🎲 *${vibe}*`,
         ].join("\n")
       )
-      .setImage(LUIGI_GIF)
+      .setImage("https://media.tenor.com/5c0q6qv5Qv0AAAAC/luigi-casino.gif")
       .setFooter({ text: "🎰 Luigi Casino • Blackjack Table" });
 
     return interaction.reply({
