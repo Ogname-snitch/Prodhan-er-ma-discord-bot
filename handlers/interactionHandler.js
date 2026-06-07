@@ -164,12 +164,8 @@ module.exports = (client) => {
 // =========================
 if (interaction.customId === "hit" || interaction.customId === "stand") {
 
-  const blackjack = client.commands.get("blackjack");
-  if (!blackjack) return;
-
-  const game = blackjack.games?.get(interaction.user.id);
-  if (!game) return;
-
+ const blackjack = client.commands.get("blackjack");
+const game = blackjack.games?.get(interaction.user.id);
   // 🚨 MUST ACK IMMEDIATELY (THIS IS THE FIX)
   await interaction.deferUpdate().catch(() => {});
   

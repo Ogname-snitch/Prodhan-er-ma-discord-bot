@@ -8,7 +8,8 @@ const {
 
 const User = require("../../utils/database");
 
-const games = new Map();
+global.blackjackGames = global.blackjackGames || new Map();
+const games = global.blackjackGames;
 
 function draw() {
   return Math.floor(Math.random() * 11) + 1;
