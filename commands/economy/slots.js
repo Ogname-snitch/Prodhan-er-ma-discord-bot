@@ -1,56 +1,85 @@
-const { SlashCommandBuilder } = require("discord.js");
+const {
+  SlashCommandBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require("discord.js");
+
 const User = require("../../utils/database");
+
+const games = new Map();
+
+function draw() {
+  return Math.floor(Math.random() * 11) + 1;
+}
+
+function sum(arr) {
+  return arr.reduce((a, b) => a + b, 0);
+}
+
+async function getUser(id) {
+  let user = await User.findOne({ userId: id });
+
+  if (!user) {
+    user = await User.create({
+      userId: id,
+    });
+  }
+
+  return user;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("slots")
-    .setDescription("🎰 Slot machine")
+    .setName("blackjack")
+    .setDescription("🃏 Blackjack")
     .addIntegerOption(o =>
-      o.setName("bet")
-        .setDescription("Bet amount")
+      o
+        .setName("bet")
+        .setDescription("Bet")
         .setRequired(true)
     ),
 
   async execute(interaction) {
     const bet = interaction.options.getInteger("bet");
-    const user = await User.getUser(interaction.user.id);
 
-    if (bet <= 0) return interaction.reply("❌ Invalid bet");
-    if (user.wallet < bet) return interaction.reply("❌ Not enough money");
+    const user = await getUser(interaction.user.id);
 
-    const symbols = ["🍒", "🍋", "🍇", "💎", "7️⃣"];
-    const roll = () => symbols[Math.floor(Math.random() * symbols.length)];
+    if (bet <= 0)
+      return interaction.reply("❌ Invalid bet");
 
-    const r1 = roll();
-    const r2 = roll();
-    const r3 = roll();
+    if (user.wallet < bet)
+      return interaction.reply("❌ Not enough money");
 
-    let multi = 0;
+    const player = [draw(), draw()];
+    const dealer = [draw(), draw()];
 
-    if (r1 === r2 && r2 === r3) multi = 5;
-    else if (r1 === r2 || r2 === r3 || r1 === r3) multi = 2;
+    games.set(interaction.user.id, {
+      bet,
+      player,
+      dealer,
+    });
 
-    let win = bet * multi;
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("hit")
+        .setLabel("HIT")
+        .setStyle(ButtonStyle.Success),
 
-    // 🟡 Alcoholic perk (+25% winnings)
-    if (user.perk === "Alcoholic" && multi > 0) {
-      win = Math.floor(win * 1.25);
-    }
-
-    if (multi > 0) {
-      user.wallet += win;
-      await user.save();
-
-      return interaction.reply(
-        `🎰 | ${r1} | ${r2} | ${r3} |\n🎉 You won ${win} coins`
-      );
-    }
-
-    user.wallet -= bet;
-    await user.save();
-
-    return interaction.reply(
-      `🎰 | ${r1} | ${r2} | ${r3} |\n💀 You lost ${bet} coins`
+      new ButtonBuilder()
+        .setCustomId("stand")
+        .setLabel("STAND")
+        .setStyle(ButtonStyle.Danger)
     );
+
+    return interaction.reply({
+      content: `🃏 You: ${sum(player)} | Dealer: ${dealer[0]}`,
+      components: [row],
+    });
   },
+
+  games,
+  getUser,
+  sum,
+  draw,
 };

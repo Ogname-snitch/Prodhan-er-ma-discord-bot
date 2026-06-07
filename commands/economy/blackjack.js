@@ -48,8 +48,15 @@ module.exports = {
     if (bet <= 0)
       return interaction.reply("❌ Invalid bet");
 
-    if (user.wallet < bet)
-      return interaction.reply("❌ Not enough money");
+   if (bet > 15000) {
+  return interaction.reply("❌ Maximum bet is 15,000 coins");
+}
+
+if (bet <= 0)
+  return interaction.reply("❌ Invalid bet");
+
+if (user.wallet < bet)
+  return interaction.reply("❌ Not enough money");
 
     const player = [draw(), draw()];
     const dealer = [draw(), draw()];
