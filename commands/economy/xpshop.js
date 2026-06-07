@@ -66,85 +66,65 @@ module.exports = {
     const user = await User.getUser(interaction.user.id);
 
     // ================= BANK TOKEN =================
+if (user.levelPoints < 30) {
+  return interaction.reply({
+    content: "❌ You need 30 Level Points",
+    ephemeral: true,
+  });
+}
 
-    if (interaction.customId === "xp_banktoken") {
+if (user.securityLevel >= 14) {
+  return interaction.reply({
+    content: "❌ Security already maxed",
+    ephemeral: true,
+  });
+}
 
-      if ((user.xp || 0) < 20) {
-        return interaction.reply({
-          content: "❌ You need 20 XP",
-          ephemeral: true,
-        });
-      }
+user.levelPoints -= 30;
+user.securityLevel += 1;
 
-      user.xp -= 20;
-      user.bankSpace += 5000;
-
-      await user.save();
-
-      return interaction.reply({
-        content: "🏦 Purchased Bank Token (+5,000 bank space)",
-        ephemeral: true,
-      });
-    }
+await user.save();
 
     // ================= SECURITY =================
 
-    if (interaction.customId === "xp_security") {
+if (user.levelPoints < 30) {
+  return interaction.reply({
+    content: "❌ You need 30 Level Points",
+    ephemeral: true,
+  });
+}
 
-      if ((user.xp || 0) < 30) {
-        return interaction.reply({
-          content: "❌ You need 30 XP",
-          ephemeral: true,
-        });
-      }
+if (user.securityLevel >= 14) {
+  return interaction.reply({
+    content: "❌ Security already maxed",
+    ephemeral: true,
+  });
+}
 
-      if ((user.securityLevel || 0) >= 14) {
-        return interaction.reply({
-          content: "❌ Security already maxed (70%)",
-          ephemeral: true,
-        });
-      }
+user.levelPoints -= 30;
+user.securityLevel += 1;
 
-      user.xp -= 30;
-      user.securityLevel += 1;
-
-      await user.save();
-
-      return interaction.reply({
-        content: `🔒 Security upgraded to ${
-          user.securityLevel * 5
-        }%`,
-        ephemeral: true,
-      });
-    }
+await user.save();
 
     // ================= PERK =================
 
-    if (interaction.customId === "xp_perk") {
+ if (user.levelPoints < 50) {
+  return interaction.reply({
+    content: "❌ You need 50 Level Points",
+    ephemeral: true,
+  });
+}
 
-      if ((user.xp || 0) < 50) {
-        return interaction.reply({
-          content: "❌ You need 50 XP",
-          ephemeral: true,
-        });
-      }
+if (user.perkUpgrades >= 3) {
+  return interaction.reply({
+    content: "❌ Perk upgrades are maxed",
+    ephemeral: true,
+  });
+}
 
-      if ((user.perkUpgrades || 0) >= 3) {
-        return interaction.reply({
-          content: "❌ Perk upgrades already maxed",
-          ephemeral: true,
-        });
-      }
+user.levelPoints -= 50;
+user.perkUpgrades += 1;
 
-      user.xp -= 50;
-      user.perkUpgrades += 1;
-
-      await user.save();
-
-      return interaction.reply({
-        content: `✨ Perk upgraded (${user.perkUpgrades}/3)`,
-        ephemeral: true,
-      });
-    }
+await user.save();
   },
 };
