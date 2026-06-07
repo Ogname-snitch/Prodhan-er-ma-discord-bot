@@ -1,4 +1,7 @@
-const { SlashCommandBuilder } = require("discord.js");
+const {
+  SlashCommandBuilder,
+} = require("discord.js");
+
 const User = require("../../utils/database");
 
 async function getUser(id) {
@@ -8,11 +11,10 @@ async function getUser(id) {
     user = await User.create({
       userId: id,
       perk: "None",
+
+      // ⭐ BANK DEFAULTS
       bank: 0,
       bankSpace: 1000,
-      level: 0,
-      xp: 0,
-      points: 0,
     });
   }
 
@@ -36,15 +38,20 @@ module.exports = {
       interaction.options.getUser("user") ||
       interaction.user;
 
-    const user = await getUser(target.id);
+    const user =
+      await getUser(target.id);
+
+    const perk =
+      user.perk || "None";
+
+    const bank =
+      user.bank || 0;
+
+    const bankSpace =
+      user.bankSpace || 1000;
 
     return interaction.reply(
-      `💰 ${target.username} has ${user.wallet} coins
-🏦 Bank: ${user.bank}/${user.bankSpace}
-⭐ Level: ${user.level}
-📈 XP: ${user.xp}
-🎁 Points: ${user.points}
-✨ Perk: ${user.perk || "None"}`
+      `💰 ${target.username} has ${user.wallet} coins\n🏦 Bank: ${bank}/${bankSpace}\n⭐ Perk: ${perk}`
     );
   },
 };
