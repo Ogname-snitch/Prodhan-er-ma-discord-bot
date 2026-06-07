@@ -21,56 +21,52 @@ module.exports = {
 
     const medals = ["🥇", "🥈", "🥉"];
 
-    // ================= CLEAN CARD STYLE =================
+    // ================= CLEAN FORMAT =================
     const leaderboard = users.map((u, i) => {
       const rank = i + 1;
       const medal = medals[i] || "🏅";
 
-      const name = `<@${u.userId}>`;
-      const balance = (u.wallet || 0).toLocaleString();
-
       return [
-        `**${medal} Rank #${rank}**`,
-        `👤 ${name}`,
-        `💰 ${balance} coins`,
-        "━━━━━━━━━━━━━━━━━━"
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "",
+        `${medal} **Rank #${rank}**`,
+        `👤 <@${u.userId}>`,
+        `💰 Balance: **${(u.wallet || 0).toLocaleString()} coins**`,
+        ""
       ].join("\n");
-    }).join("\n\n");
+    }).join("\n");
 
     const topUser = users[0];
 
     const embed = new EmbedBuilder()
-      .setColor(0xf1c40f)
+      .setColor(0xffd700)
       .setTitle("🏆 GLOBAL WEALTH LEADERBOARD")
       .setDescription(
         [
-          "💰 **Top 10 Richest Players in the Economy**",
+          "💰 **Top 10 Richest Players**",
+          "",
+          "━━━━━━━━━━━━━━━━━━━━━━",
+          "",
+          leaderboard,
+          "━━━━━━━━━━━━━━━━━━━━━━",
         ].join("\n")
       )
       .setThumbnail(
-        interaction.client.user.displayAvatarURL()
+        "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
       )
       .addFields(
         {
-          name: "👑 King of Wealth",
+          name: "👑 Top Player",
           value: `<@${topUser.userId}>`,
           inline: true,
         },
         {
-          name: "💰 Total Cash",
+          name: "💰 Wealth",
           value: `**${(topUser.wallet || 0).toLocaleString()} coins**`,
-          inline: true,
-        },
-        {
-          name: "🏆 Players Ranked",
-          value: `**${users.length}**`,
           inline: true,
         }
       )
-      .setFooter({
-        text: "🏦 Economy System • Live Rankings",
-      })
-      .setTimestamp();
+      .setFooter({ text: "Economy Leaderboard • Live Rankings" });
 
     return interaction.reply({
       embeds: [embed],
