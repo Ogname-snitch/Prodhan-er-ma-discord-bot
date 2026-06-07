@@ -45,15 +45,6 @@ module.exports = {
       .setDescription(
         [
           "💰 **Top 10 Richest Players in the Economy**",
-          "",
-          "```",
-          "Rank  | Player              | Balance",
-          "--------------------------------------",
-          "```",
-          "",
-          leaderboard,
-          "",
-          "━━━━━━━━━━━━━━━━━━━━━━",
         ].join("\n")
       )
       .setThumbnail(
