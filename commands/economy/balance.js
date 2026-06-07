@@ -12,11 +12,15 @@ async function getUser(id) {
     user = await User.create({
       userId: id,
       perk: "None",
+      perkLevel: 1, // ⭐ NEW DEFAULT LEVEL
       bank: 0,
       bankSpace: 10000,
       wallet: 0,
     });
   }
+
+  // safety defaults (important for old users)
+  if (typeof user.perkLevel !== "number") user.perkLevel = 1;
 
   return user;
 }
@@ -46,6 +50,9 @@ module.exports = {
 
     const total = format((user.wallet || 0) + (user.bank || 0));
 
+    const perkName = user.perk || "None";
+    const perkLevel = user.perkLevel || 1; // ⭐ FIX
+
     const embed = new EmbedBuilder()
       .setColor(0x2b2d31)
       .setTitle(`💰 ${target.username}'s Wallet`)
@@ -68,7 +75,7 @@ module.exports = {
         },
         {
           name: "⭐ Perk",
-          value: `\`${user.perk || "None"}\``,
+          value: `\`${perkName} [Level ${perkLevel}]\``,
           inline: true,
         }
       )

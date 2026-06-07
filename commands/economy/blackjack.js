@@ -17,66 +17,39 @@ function sum(arr) {
   return arr.reduce((a, b) => a + b, 0);
 }
 
-async function getUser(id) {
-  let user = await User.findOne({ userId: id });
-
-  if (!user) {
-    user = await User.create({
-      userId: id,
-    });
-  }
-
-  return user;
-}
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("blackjack")
     .setDescription("🃏 Blackjack")
     .addIntegerOption(o =>
-      o
-        .setName("bet")
-        .setDescription("Bet")
-        .setRequired(true)
+      o.setName("bet").setDescription("Bet").setRequired(true)
     ),
 
   async execute(interaction) {
     const bet = interaction.options.getInteger("bet");
+    const user = await User.getUser(interaction.user.id);
 
-    const user = await getUser(interaction.user.id);
+    if (user.wallet < bet)
+      return interaction.reply("❌ Not enough money");
 
-    if (bet <= 0)
-      return interaction.reply("❌ Invalid bet");
-
-   if (bet > 15000) {
-  return interaction.reply("❌ Maximum bet is 15,000 coins");
-}
-
-if (bet <= 0)
-  return interaction.reply("❌ Invalid bet");
-
-if (user.wallet < bet)
-  return interaction.reply("❌ Not enough money");
-
-    const player = [draw(), draw()];
+    let player = [draw(), draw()];
     const dealer = [draw(), draw()];
 
-    games.set(interaction.user.id, {
-      bet,
-      player,
-      dealer,
-    });
+    // ⭐ PERK BONUS (instant 21 chance)
+    if (user.perk === "Alcoholic") {
+      const lvl = user.perkLevel || 1;
+      const chance = 0.20 + (lvl - 1) * 0.05;
+
+      if (Math.random() < chance) {
+        player = [10, 11]; // instant strong hand
+      }
+    }
+
+    games.set(interaction.user.id, { bet, player, dealer });
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("hit")
-        .setLabel("HIT")
-        .setStyle(ButtonStyle.Success),
-
-      new ButtonBuilder()
-        .setCustomId("stand")
-        .setLabel("STAND")
-        .setStyle(ButtonStyle.Danger)
+      new ButtonBuilder().setCustomId("hit").setLabel("HIT").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("stand").setLabel("STAND").setStyle(ButtonStyle.Danger)
     );
 
     return interaction.reply({
@@ -86,7 +59,6 @@ if (user.wallet < bet)
   },
 
   games,
-  getUser,
-  sum,
   draw,
+  sum,
 };

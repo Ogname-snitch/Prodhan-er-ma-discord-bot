@@ -22,6 +22,10 @@ const userSchema = new mongoose.Schema({
   jailUntil: { type: Number, default: 0 },
 
   perk: { type: String, default: "None" },
+
+  // ✅ NEW: perk upgrade level (starts at 1)
+  perkLevel: { type: Number, default: 1 },
+
   perkClaimed: { type: Boolean, default: false },
 
   inventory: {
@@ -54,6 +58,10 @@ userSchema.statics.getUser = async function (id) {
       bank: 0,
       bankSpace: 1000,
       perk: "None",
+
+      // ✅ NEW DEFAULT
+      perkLevel: 1,
+
       perkClaimed: false,
       jailUntil: 0,
       bankJailUntil: 0,
@@ -65,6 +73,9 @@ userSchema.statics.getUser = async function (id) {
 
   if (!user.inventory) user.inventory = [];
   if (!user.goods) user.goods = {};
+
+  // safety fallback for old users
+  if (user.perkLevel == null) user.perkLevel = 1;
 
   return user;
 };
