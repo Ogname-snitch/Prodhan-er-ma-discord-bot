@@ -52,7 +52,7 @@ module.exports = {
         ].join("\n")
       )
       .setThumbnail(
-        "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+        interaction.client.user.displayAvatarURL()
       )
       .addFields(
         {
