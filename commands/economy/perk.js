@@ -1,7 +1,15 @@
 const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
-const perks = ["Workaholic", "Alcoholic", "Robber", "Beggar"];
+// ================= PERKS =================
+// Added Fisher perk
+const perks = [
+  "Workaholic",
+  "Alcoholic",
+  "Robber",
+  "Beggar",
+  "Fisher", // ⭐ NEW PERK ADDED
+];
 
 async function getUser(id) {
   return await User.getUser(id);
@@ -34,7 +42,7 @@ module.exports = {
     // 💰 CHECK BALANCE FOR REROLL
     if (user.wallet < COST) {
       return interaction.reply(
-        `❌ You need ${COST} coins to reroll your perk`
+        `❌ You need ${COST.toLocaleString()} coins to reroll your perk`
       );
     }
 
