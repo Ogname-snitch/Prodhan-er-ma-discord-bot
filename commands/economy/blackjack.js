@@ -29,7 +29,7 @@ const vibes = [
 
 // ✅ FIXED GIF (reliable CDN)
 const LUIGI_GIF =
-  "https://media.tenor.com/5KX7qQ8qv1oAAAAC/squirrel-casino.gif";
+  "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExNGZ1ODB3dHNxbW5lc3ZtNWsybWUyM2hzY211MjFvbzk3d2Vhc2ZnMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/hZt4Iv5NwyVRMm14G4/giphy.gif";
 
 // 🎮 button builder (IMPORTANT FIX)
 function getButtons(disabled = false) {
@@ -72,7 +72,7 @@ function buildEmbed({ bet, player, dealer, vibe, result = null }) {
       ].join("\n")
     )
     .setImage(LUIGI_GIF)
-    .setFooter({ text: "🎰 Squirrel Casino • Blackjack Table" });
+    .setFooter({ text: "🎰 Luigi's Casino • Blackjack Table" });
 }
 
 module.exports = {
