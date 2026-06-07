@@ -14,6 +14,21 @@ function getLevelReward(level) {
   return 60;
 }
 
+// ⭐ NEW: level buff helpers (ADDED ONLY)
+function getEconomyMultiplier(level) {
+  // Level 5 & 15 = +20% money earning
+  if (level >= 15) return 1.4; // stacked
+  if (level >= 5) return 1.2;
+  return 1;
+}
+
+function getFishMultiplier(level) {
+  // Level 10 & 20 = +15% better fish chance
+  if (level >= 20) return 1.3;
+  if (level >= 10) return 1.15;
+  return 1;
+}
+
 module.exports = (client) => {
   client.on(Events.InteractionCreate, async (interaction) => {
 
@@ -34,7 +49,7 @@ module.exports = (client) => {
       try {
         await command.execute(interaction, client);
 
-        // ⭐ LEVEL SYSTEM (XP + LEVEL UP)
+        // ⭐ LEVEL SYSTEM (UNCHANGED)
         const user = await User.getUser(interaction.user.id);
 
         user.xp = (user.xp || 0) + 1;
@@ -192,5 +207,13 @@ module.exports = (client) => {
         }).catch(() => {});
       }
     }
+
+    // =========================
+    // ⭐ NEW (SAFE ADDITION HOOKS — NO BREAKING CHANGES)
+    // =========================
+
+    // You can use these helpers in other commands later:
+    interaction.client._getEcoMultiplier = getEconomyMultiplier;
+    interaction.client._getFishMultiplier = getFishMultiplier;
   });
 };
