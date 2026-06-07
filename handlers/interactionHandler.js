@@ -16,14 +16,12 @@ function getLevelReward(level) {
 
 // ⭐ NEW: level buff helpers (ADDED ONLY)
 function getEconomyMultiplier(level) {
-  // Level 5 & 15 = +20% money earning
-  if (level >= 15) return 1.4; // stacked
+  if (level >= 15) return 1.4;
   if (level >= 5) return 1.2;
   return 1;
 }
 
 function getFishMultiplier(level) {
-  // Level 10 & 20 = +15% better fish chance
   if (level >= 20) return 1.3;
   if (level >= 10) return 1.15;
   return 1;
@@ -140,19 +138,25 @@ module.exports = (client) => {
       }
     }
 
-    // ================= XP SHOP =================
+    // ================= XP SHOP (FULL FIX ADDED - SAFE) =================
+    const xpShop = client.commands.get("xpshop");
 
-const xpShop = client.commands.get("xpshop");
+    if (xpShop && typeof xpShop.xpShopHandler === "function") {
+      try {
+        const handled = await xpShop.xpShopHandler(interaction, User);
 
-if (
-  xpShop &&
-  typeof xpShop.xpShopHandler === "function"
-) {
-  const handled =
-    await xpShop.xpShopHandler(interaction, User);
+        // IMPORTANT: only stop if handler actually processed it
+        if (handled !== false) return;
 
-  if (handled !== false) return;
-}
+      } catch (err) {
+        console.log("❌ XP Shop error:", err);
+
+        return interaction.reply({
+          content: "❌ XP Shop failed",
+          ephemeral: true,
+        }).catch(() => {});
+      }
+    }
 
     // ================= BLACKJACK =================
     if (interaction.customId === "hit" || interaction.customId === "stand") {
@@ -226,7 +230,6 @@ if (
     // ⭐ NEW (SAFE ADDITION HOOKS — NO BREAKING CHANGES)
     // =========================
 
-    // You can use these helpers in other commands later:
     interaction.client._getEcoMultiplier = getEconomyMultiplier;
     interaction.client._getFishMultiplier = getFishMultiplier;
   });
