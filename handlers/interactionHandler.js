@@ -159,23 +159,21 @@ module.exports = (client) => {
         console.log("❌ XP Shop error:", err);
       }
     }
-// BLACKJACK
+// =========================
+// BLACKJACK (FIXED 100%)
+// =========================
 if (interaction.customId === "hit" || interaction.customId === "stand") {
 
   const blackjack = client.commands.get("blackjack");
-  if (!blackjack) return interaction.deferUpdate().catch(() => {});
+  if (!blackjack) return;
 
   const game = blackjack.games?.get(interaction.user.id);
-  if (!game) return interaction.deferUpdate().catch(() => {});
+  if (!game) return;
 
-  let user;
-
-  try {
-    user = await blackjack.getUser(interaction.user.id);
-  } catch (err) {
-    console.log("Blackjack user error:", err);
-    return interaction.deferUpdate().catch(() => {});
-  }
+  // 🚨 MUST ACK IMMEDIATELY (THIS IS THE FIX)
+  await interaction.deferUpdate().catch(() => {});
+  
+  const user = await blackjack.getUser(interaction.user.id);
 
   const p = game.player;
   const d = game.dealer;
@@ -187,26 +185,26 @@ if (interaction.customId === "hit" || interaction.customId === "stand") {
 
       p.push(blackjack.draw());
 
-      const playerScore = blackjack.sum(p);
+      const ps = blackjack.sum(p);
 
-      // BUST
-      if (playerScore > 21) {
+      if (ps > 21) {
         blackjack.games.delete(interaction.user.id);
 
         user.wallet -= game.bet;
         await user.save();
 
-        return interaction.update({
+        return interaction.editReply({
           content: `💥 **BUST!** You lost **${game.bet.toLocaleString()} coins**`,
           components: [],
-        }).catch(() => interaction.deferUpdate().catch(() => {}));
+        });
       }
 
-      // SAFE HIT UPDATE
-      return interaction.update({
-        content: `🃏 **You:** ${playerScore} | 🧠 Dealer shows: ${d[0]}`,
-        components: interaction.message.components,
-      }).catch(() => interaction.deferUpdate().catch(() => {}));
+      return interaction.editReply({
+        content: `🃏 **You:** ${ps} | 🧠 Dealer shows: ${d[0]}`,
+        components: [
+          interaction.message.components?.[0] ?? interaction.message.components
+        ],
+      });
     }
 
     // ================= STAND =================
@@ -230,22 +228,23 @@ if (interaction.customId === "hit" || interaction.customId === "stand") {
         user.wallet -= game.bet;
         result = `💀 You LOST **${game.bet.toLocaleString()} coins**`;
       } else {
-        result = `🤝 **PUSH (Tie)**`;
+        result = "🤝 **PUSH (Tie)**";
       }
 
       await user.save();
 
-      return interaction.update({
+      return interaction.editReply({
         content: `🃏 **You:** ${ps} | 🧠 Dealer: ${ds}\n\n${result}`,
         components: [],
-      }).catch(() => interaction.deferUpdate().catch(() => {}));
+      });
     }
 
   } catch (err) {
-    console.log("Blackjack interaction error:", err);
-
-    // 🔒 CRITICAL SAFETY: ALWAYS ACK INTERACTION
-    return interaction.deferUpdate().catch(() => {});
+    console.log("Blackjack error:", err);
+    return interaction.editReply({
+      content: "❌ Blackjack error occurred",
+      components: [],
+    }).catch(() => {});
   }
 }
 
