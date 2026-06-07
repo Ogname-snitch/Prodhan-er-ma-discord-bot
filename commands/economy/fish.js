@@ -172,12 +172,12 @@ module.exports = {
 
     const embed = new EmbedBuilder()
   .setColor(rarityColors[fish.rarity])
-  .setTitle("🎣 Fishing Result")
-  .setDescription(
-    `You caught **${fish.emoji} ${fish.name}**\n\n` +
-    `${rarityIcons[fish.rarity]} **[${fish.rarity}]**\n\n` +
-    `💰 Worth **${fish.value.toLocaleString()}** coins`
-  );
+  .setTitle(`${fish.emoji} ${fish.name}`)
+  .addFields(
+    { name: "Rarity", value: fish.rarity, inline: true },
+    { name: "Value", value: `${fish.value.toLocaleString()} coins`, inline: true }
+  )
+  .setFooter({ text: "🎣 Fishing System" });
 
 return interaction.reply({
   embeds: [embed],
