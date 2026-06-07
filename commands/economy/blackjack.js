@@ -28,8 +28,8 @@ const vibes = [
 
 // 🎰 LUIGI CASINO GIF (converted usable format)
 const LUIGI_GIF =
-  "https://media.giphy.com/media/3o7aD2saalBwwftBIY/giphy.gif";
-  
+  "https://tenor.com/view/luigi-casino-gif-18158832090148544636.gif";
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("blackjack")
