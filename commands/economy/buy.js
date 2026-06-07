@@ -1,7 +1,4 @@
-const {
-  SlashCommandBuilder,
-} = require("discord.js");
-
+const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
 // 🛒 SHOP PRICES
@@ -13,6 +10,16 @@ const items = {
   "streaming equipment": 20000,
   "games": 10000,
   "ski masks": 100,
+};
+
+const itemIcons = {
+  "baking equipment": "🎂",
+  "gun": "🔫",
+  "rifle": "🎯",
+  "fishing rod": "🎣",
+  "streaming equipment": "📹",
+  "games": "🎮",
+  "ski masks": "🎭",
 };
 
 module.exports = {
@@ -36,31 +43,30 @@ module.exports = {
     ),
 
   async execute(interaction) {
-
-    const item =
-      interaction.options.getString("item");
-
+    const item = interaction.options.getString("item");
     const price = items[item];
 
-    const user =
-      await User.getUser(interaction.user.id);
+    const user = await User.getUser(interaction.user.id);
 
     if (!price) {
-      return interaction.reply("❌ Invalid item");
+      return interaction.reply({
+        content: "❌ Invalid item selected",
+        ephemeral: true,
+      });
     }
 
     if (user.wallet < price) {
-      return interaction.reply(
-        `❌ You need ${price} coins`
-      );
+      return interaction.reply({
+        content: `❌ You need **${price.toLocaleString()} coins** to buy this item`,
+        ephemeral: true,
+      });
     }
 
     // 💸 deduct money
     user.wallet -= price;
 
-    // 🎒 INVENTORY SYSTEM
+    // 🎒 inventory system
     const inv = user.inventory || [];
-
     const existing = inv.find(i => i.item === item);
 
     if (existing) {
@@ -77,8 +83,28 @@ module.exports = {
 
     await user.save();
 
-    return interaction.reply(
-      `🛒 You bought **${item}** for ${price} coins`
-    );
+    // ================= UI EMBED =================
+    const embed = new EmbedBuilder()
+      .setColor(0x2b2d31)
+      .setTitle("🛒 PURCHASE COMPLETE")
+      .setDescription(
+        [
+          "━━━━━━━━━━━━━━━━━━━━━━",
+          "",
+          `✨ **Item Bought:** ${itemIcons[item]} **${item.toUpperCase()}**`,
+          "",
+          `💰 **Cost:** \`${price.toLocaleString()} coins\``,
+          `🏦 **Remaining Balance:** \`${user.wallet.toLocaleString()} coins\``,
+          "",
+          "━━━━━━━━━━━━━━━━━━━━━━",
+          "",
+          "📦 Item has been added to your inventory.",
+        ].join("\n")
+      )
+      .setFooter({ text: "🛍️ Economy Shop System" });
+
+    return interaction.reply({
+      embeds: [embed],
+    });
   },
 };
