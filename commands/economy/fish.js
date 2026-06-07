@@ -61,7 +61,7 @@ const fishTable = [
   // Vent (rare meme tier)
   { name: "Prodhan's Cuck Chair", emoji: "🪑", rarity: "Vent", chance: 0.5, value: 800000 },
   { name: "Zarif's Left Testicle", emoji: "🪀", rarity: "Vent", chance: 0.5, value: 850000 },
-  { name: "Omar's Skateboard", emoji: "🛹", rarity: "Vent", chance: 0.5, value: 900000 },
+  { name: "Omar's Cum Stained Skateboard", emoji: "🛹", rarity: "Vent", chance: 0.5, value: 900000 },
   { name: "Mashrib's Crush List", emoji: "📋", rarity: "Vent", chance: 0.5, value: 950000 },
   { name: "Shayan's Broken Hand", emoji: "🦾", rarity: "Vent", chance: 0.5, value: 975000 },
   { name: "Suhaib's ISP", emoji: "📡", rarity: "Vent", chance: 0.5, value: 1000000 },
@@ -107,19 +107,18 @@ function getRandomFish(hasFisherPerk = false) {
     else if (roll < 85) rarity = "Epic";
     else if (roll < 92) rarity = "Legendary";
     else if (roll < 97) rarity = "Mythic";
-    else rarity = "Vent";
+    else rarity = "Vent"; // ~3%
 
   } else {
 
-    // Fisher perk = EVEN LESS trash + better rare drops
     if (roll < 10) rarity = "Trash";
     else if (roll < 35) rarity = "Common";
     else if (roll < 55) rarity = "Uncommon";
-    else if (roll < 72) rarity = "Rare";
-    else if (roll < 85) rarity = "Epic";
-    else if (roll < 94) rarity = "Legendary";
-    else if (roll < 98) rarity = "Mythic";
-    else rarity = "Vent";
+    else if (roll < 70) rarity = "Rare";
+    else if (roll < 82) rarity = "Epic";
+    else if (roll < 90) rarity = "Legendary";
+    else if (roll < 92) rarity = "Mythic";
+    else rarity = "Vent"; // ~8%
   }
 
   const pool = fishTable.filter(
