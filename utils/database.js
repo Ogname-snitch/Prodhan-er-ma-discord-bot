@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 
 mongoose.connect(process.env.MONGO_URI)
-.then(() => console.log("✅ MongoDB Connected"))
-.catch(err => console.log("❌ MongoDB Error:", err));
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch(err => console.log("❌ MongoDB Error:", err));
 
 const userSchema = new mongoose.Schema({
   userId: { type: String, unique: true },
@@ -13,19 +13,15 @@ const userSchema = new mongoose.Schema({
   lastWork: { type: Number, default: 0 },
   lastBeg: { type: Number, default: 0 },
   lastSteal: { type: Number, default: 0 },
-
   lastBake: { type: Number, default: 0 },
   lastHunt: { type: Number, default: 0 },
   lastFish: { type: Number, default: 0 },
   lastStream: { type: Number, default: 0 },
-  lastScam: { type: Number, default: 0 },
-  lastBankRob: { type: Number, default: 0 },
 
   bankJailUntil: { type: Number, default: 0 },
-
-  perk: { type: String, default: "None" },
   jailUntil: { type: Number, default: 0 },
 
+  perk: { type: String, default: "None" },
   perkClaimed: { type: Boolean, default: false },
 
   inventory: {
@@ -33,15 +29,12 @@ const userSchema = new mongoose.Schema({
     default: [],
   },
 
-  goods: {
-    type: Object,
-    default: {},
-  },
+  goods: { type: Object, default: {} },
 
   bank: { type: Number, default: 0 },
   bankSpace: { type: Number, default: 1000 },
 
-  // ⭐ LEVEL SYSTEM ADDED
+  // ⭐ LEVEL SYSTEM
   level: { type: Number, default: 0 },
   xp: { type: Number, default: 0 },
   points: { type: Number, default: 0 },
@@ -73,7 +66,6 @@ userSchema.statics.getUser = async function (id) {
   if (!user.inventory) user.inventory = [];
   if (!user.goods) user.goods = {};
 
-  await user.save();
   return user;
 };
 

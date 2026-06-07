@@ -6,29 +6,31 @@ const cooldown = 30000;
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("work")
-    .setDescription("💼 Work for coins"),
+    .setDescription("💼 Work"),
 
   async execute(interaction) {
     const user = await User.getUser(interaction.user.id);
     const now = Date.now();
 
     if (now - user.lastWork < cooldown) {
-      const left = Math.ceil((cooldown - (now - user.lastWork)) / 1000);
-      return interaction.reply(`⏳ Wait ${left}s`);
+      return interaction.reply(`⏳ Cooldown`);
     }
 
     let amount = Math.floor(Math.random() * 500) + 300;
 
-    // 🟢 Workaholic perk (x2.5)
     if (user.perk === "Workaholic") {
       amount = Math.floor(amount * 2.5);
     }
 
-    user.wallet += amount;
+    // ⭐ LEVEL BOOST (lvl 5+ & 15+)
+    if (user.level >= 5 && user.level < 15) amount *= 1.2;
+    if (user.level >= 15) amount *= 1.4;
+
+    user.wallet += Math.floor(amount);
     user.lastWork = now;
 
     await user.save();
 
-    return interaction.reply(`💼 You earned ${amount} coins`);
+    return interaction.reply(`💼 +${Math.floor(amount)} coins`);
   },
 };

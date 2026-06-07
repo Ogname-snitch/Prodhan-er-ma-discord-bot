@@ -6,46 +6,35 @@ const cooldown = 300000;
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("stream")
-    .setDescription("📹 Stream games"),
+    .setDescription("📹 Stream"),
 
   async execute(interaction) {
-
     const user = await User.getUser(interaction.user.id);
-
     const now = Date.now();
 
     if (now - user.lastStream < cooldown) {
-      const left = Math.ceil(
-        (cooldown - (now - user.lastStream)) / 1000
-      );
-
-      return interaction.reply(`⏳ Wait ${left}s`);
+      return interaction.reply(`⏳ Cooldown`);
     }
 
-    const setup = user.inventory.find(
-      i => i.item === "streaming equipment"
-    );
-
-    const games = user.inventory.find(
-      i => i.item === "games"
-    );
+    const setup = user.inventory.find(i => i.item === "streaming equipment");
+    const games = user.inventory.find(i => i.item === "games");
 
     if (!setup || !games) {
-      return interaction.reply(
-        "❌ You need streaming equipment and games"
-      );
+      return interaction.reply("❌ Missing items");
     }
 
-    const amount =
-      Math.floor(Math.random() * 9991) + 10;
+    let amount = Math.floor(Math.random() * 9991) + 10;
 
-    user.wallet += amount;
+    if (user.perk === "Workaholic") amount *= 1.2;
+
+    if (user.level >= 5) amount *= 1.2;
+    if (user.level >= 15) amount *= 1.4;
+
+    user.wallet += Math.floor(amount);
     user.lastStream = now;
 
     await user.save();
 
-    return interaction.reply(
-      `📹 Your stream earned ${amount} coins`
-    );
+    return interaction.reply(`📹 +${Math.floor(amount)} coins`);
   },
 };
