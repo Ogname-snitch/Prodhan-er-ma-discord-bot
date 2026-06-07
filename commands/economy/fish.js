@@ -67,22 +67,64 @@ const fishTable = [
   { name: "Tuhid's Screenshots", emoji: "📂", rarity: "Vent", chance: 0.5, value: 2000000 },
 ];
 
+const rarityColors = {
+  Trash: 0xe2e8f0,
+  Common: 0xdcfce7,
+  Uncommon: 0xdbeafe,
+  Rare: 0xf3e8ff,
+  Epic: 0xffedd5,
+  Legendary: 0xfef3c7,
+  Mythic: 0xfce7f3,
+  Vent: 0xffc7ce,
+};
+
+const rarityIcons = {
+  Trash: "⬜",
+  Common: "🟩",
+  Uncommon: "🟦",
+  Rare: "🟪",
+  Epic: "🟧",
+  Legendary: "🟨",
+  Mythic: "🩷",
+  Vent: "🟥",
+};
+
 // ================= PICK FUNCTION =================
 function getRandomFish() {
-  const pool = fishTable;
+  const roll = Math.random() * 100;
 
-  let roll = Math.random() * 100;
-  let selected = pool[Math.floor(Math.random() * pool.length)];
+  let rarity;
 
-  // bias toward rarity chance (simple weighted filter)
-  for (let i = 0; i < 5; i++) {
-    const f = pool[Math.floor(Math.random() * pool.length)];
-    if (Math.random() * 100 < f.chance) {
-      selected = f;
-    }
+  if (roll < 30) {
+    rarity = "Trash";
+  }
+  else if (roll < 70) {
+    rarity = "Common";
+  }
+  else if (roll < 85) {
+    rarity = "Uncommon";
+  }
+  else if (roll < 92.5) {
+    rarity = "Rare";
+  }
+  else if (roll < 95.5) {
+    rarity = "Epic";
+  }
+  else if (roll < 98) {
+    rarity = "Legendary";
+  }
+  else if (roll < 99.5) {
+    rarity = "Mythic";
+  }
+  else {
+    rarity = "Vent";
   }
 
-  return selected;
+  const pool = fishTable.filter(
+    fish => fish.rarity === rarity
+  );
+
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 module.exports = {
@@ -128,8 +170,17 @@ module.exports = {
 
     await user.save();
 
-    return interaction.reply(
-      `🐟 You caught **${fish.emoji} ${fish.name}** (${fish.rarity}) worth ${fish.value} coins`
-    );
+    const embed = new EmbedBuilder()
+  .setColor(rarityColors[fish.rarity])
+  .setTitle("🎣 Fishing Result")
+  .setDescription(
+    `You caught **${fish.emoji} ${fish.name}**\n\n` +
+    `${rarityIcons[fish.rarity]} **[${fish.rarity}]**\n\n` +
+    `💰 Worth **${fish.value.toLocaleString()}** coins`
+  );
+
+return interaction.reply({
+  embeds: [embed],
+});
   },
 };
