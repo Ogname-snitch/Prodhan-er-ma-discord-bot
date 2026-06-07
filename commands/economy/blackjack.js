@@ -27,6 +27,10 @@ const vibes = [
   "🎲 Fortune is watching you closely...",
 ];
 
+// 🎰 LUIGI CASINO GIF (converted usable format)
+const LUIGI_GIF =
+  "https://media.tenor.com/5c0q6qv5Qv0AAAAC/luigi-casino.gif";
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("blackjack")
@@ -95,7 +99,7 @@ module.exports = {
           `🎲 *${vibe}*`,
         ].join("\n")
       )
-      .setImage("https://media.tenor.com/5c0q6qv5Qv0AAAAC/luigi-casino.gif?hh=200")
+      .setImage(LUIGI_GIF)
       .setFooter({ text: "🎰 Luigi Casino • Blackjack Table" });
 
     return interaction.reply({
