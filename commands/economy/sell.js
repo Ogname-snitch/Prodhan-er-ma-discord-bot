@@ -73,6 +73,18 @@ const itemPrices = {
   "ski masks": 50,
 };
 
+// ================= SPECIAL ITEM HANDLER =================
+function getItemPrice(itemName) {
+  const name = itemName.toLowerCase();
+
+  // 🍰 CAKE SPECIAL RANGE
+  if (name === "cake") {
+    return Math.floor(Math.random() * (5000 - 1000 + 1)) + 1000;
+  }
+
+  return fishPrices[name] || itemPrices[name];
+}
+
 // ================= COMMAND =================
 module.exports = {
   data: new SlashCommandBuilder()
@@ -90,7 +102,6 @@ module.exports = {
       });
     }
 
-    // ================= BUTTON CREATION =================
     const buttons = inv.slice(0, 20).map((i) =>
       new ButtonBuilder()
         .setCustomId(`sell_${i.item}`)
@@ -117,13 +128,13 @@ module.exports = {
 
   // ================= BUTTON HANDLER =================
   sellHandler: async (interaction, User) => {
-    const item = interaction.customId.replace("sell_", "").toLowerCase();
+    const item = interaction.customId.replace("sell_", "");
 
     const user = await User.getUser(interaction.user.id);
     const inv = user.inventory || [];
 
     const found = inv.find(
-      (i) => i.item.toLowerCase() === item
+      (i) => i.item.toLowerCase() === item.toLowerCase()
     );
 
     if (!found || found.amount <= 0) {
@@ -135,9 +146,7 @@ module.exports = {
 
     const amount = found.amount;
 
-    const price =
-      fishPrices[item] ||
-      itemPrices[item];
+    const price = getItemPrice(found.item);
 
     if (!price) {
       return interaction.reply({
@@ -150,15 +159,14 @@ module.exports = {
 
     user.wallet += total;
 
-    // remove item
     user.inventory = inv.filter(
-      (i) => i.item.toLowerCase() !== item
+      (i) => i.item.toLowerCase() !== item.toLowerCase()
     );
 
     await user.save();
 
     return interaction.reply({
-      content: `💰 Sold **${found.item}** (${amount}x) for **${total} coins**`,
+      content: `💰 Sold **${found.item}** (${amount}x) for **${total.toLocaleString()} coins**`,
       ephemeral: true,
     });
   },
