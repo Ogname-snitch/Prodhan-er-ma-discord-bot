@@ -16,6 +16,12 @@ module.exports = {
   async execute(interaction) {
     const user = await User.getUser(interaction.user.id);
 
+    // ensure safe defaults
+    user.perkUpgrades = user.perkUpgrades || 0;
+    user.perkLevel = user.perkLevel || 1;
+
+    const nextCost = 50 + (user.perkUpgrades * 50);
+
     const embed = new EmbedBuilder()
       .setColor("#ffd700")
       .setTitle("🛒 LEVEL POINT SHOP")
@@ -30,9 +36,10 @@ module.exports = {
 📦 Current Space: ${user.bankSpace}
 
 ✨ **Perk Upgrade**
-🔧 Unlock stronger perks
-📊 ${user.perkUpgrades}/3 upgrades
-💰 Cost: 50 Points
+🔧 Upgrade your current perk level
+📊 Level: **${user.perkLevel}/3**
+🔁 Upgrades: **${user.perkUpgrades}/3**
+💰 Next Cost: **${nextCost} Points**
 
 ━━━━━━━━━━━━━━━`
       );
@@ -60,6 +67,9 @@ module.exports = {
 
     const user = await User.getUser(interaction.user.id);
 
+    user.perkUpgrades = user.perkUpgrades || 0;
+    user.perkLevel = user.perkLevel || 1;
+
     // ================= BANK =================
     if (interaction.customId === "xp_bank") {
       if (user.points < 20) {
@@ -80,29 +90,36 @@ module.exports = {
       });
     }
 
-    // ================= PERK =================
+    // ================= PERK UPGRADE (FIXED SYSTEM) =================
     if (interaction.customId === "xp_perk") {
-      if (user.points < 50) {
+
+      // max upgrades reached
+      if (user.perkUpgrades >= 3 || user.perkLevel >= 3) {
         return interaction.reply({
-          content: "❌ Need 50 Points",
+          content: "❌ Perk already fully upgraded (MAX LEVEL)",
           ephemeral: true,
         });
       }
 
-      if (user.perkUpgrades >= 3) {
+      const cost = 50 + (user.perkUpgrades * 50);
+
+      if (user.points < cost) {
         return interaction.reply({
-          content: "❌ Perk maxed (3/3)",
+          content: `❌ You need **${cost} points**`,
           ephemeral: true,
         });
       }
 
-      user.points -= 50;
+      user.points -= cost;
       user.perkUpgrades += 1;
+      user.perkLevel += 1;
+
+      if (user.perkLevel > 3) user.perkLevel = 3;
 
       await user.save();
 
       return interaction.reply({
-        content: `✨ Perk upgraded (${user.perkUpgrades}/3)`,
+        content: `✨ Perk upgraded to **Level ${user.perkLevel}/3**!\n💰 Cost: ${cost} points`,
         ephemeral: true,
       });
     }
