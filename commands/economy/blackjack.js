@@ -3,6 +3,7 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  EmbedBuilder,
 } = require("discord.js");
 
 const User = require("../../utils/database");
@@ -17,43 +18,91 @@ function sum(arr) {
   return arr.reduce((a, b) => a + b, 0);
 }
 
+// ================= CASINO UI HELPERS =================
+const vibes = [
+  "🎰 The table is tense...",
+  "🃏 The dealer is watching you closely...",
+  "💰 High stakes... no mercy...",
+  "🔥 The crowd is holding its breath...",
+  "🎲 Fortune is deciding your fate...",
+];
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("blackjack")
-    .setDescription("🃏 Blackjack")
+    .setDescription("🃏 Casino Blackjack")
     .addIntegerOption(o =>
-      o.setName("bet").setDescription("Bet").setRequired(true)
+      o.setName("bet")
+        .setDescription("Place your bet")
+        .setRequired(true)
     ),
 
   async execute(interaction) {
     const bet = interaction.options.getInteger("bet");
     const user = await User.getUser(interaction.user.id);
 
-    if (user.wallet < bet)
-      return interaction.reply("❌ Not enough money");
+    if (bet <= 0)
+      return interaction.reply({ content: "❌ Invalid bet", ephemeral: true });
 
+    if (user.wallet < bet)
+      return interaction.reply({ content: "❌ Not enough money", ephemeral: true });
+
+    // ================= INITIAL HANDS =================
     let player = [draw(), draw()];
     const dealer = [draw(), draw()];
 
-    // ⭐ PERK BONUS (instant 21 chance)
+    // ⭐ PERK BONUS (Alcoholic instant strong hand chance)
     if (user.perk === "Alcoholic") {
       const lvl = user.perkLevel || 1;
       const chance = 0.20 + (lvl - 1) * 0.05;
 
       if (Math.random() < chance) {
-        player = [10, 11]; // instant strong hand
+        player = [10, 11]; // near blackjack
       }
     }
 
     games.set(interaction.user.id, { bet, player, dealer });
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("hit").setLabel("HIT").setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId("stand").setLabel("STAND").setStyle(ButtonStyle.Danger)
+      new ButtonBuilder()
+        .setCustomId("hit")
+        .setLabel("HIT")
+        .setEmoji("🃏")
+        .setStyle(ButtonStyle.Success),
+
+      new ButtonBuilder()
+        .setCustomId("stand")
+        .setLabel("STAND")
+        .setEmoji("🛑")
+        .setStyle(ButtonStyle.Danger)
     );
 
+    const vibe = vibes[Math.floor(Math.random() * vibes.length)];
+
+    const embed = new EmbedBuilder()
+      .setColor(0x0f0f0f)
+      .setTitle("🃏 BLACKJACK TABLE")
+      .setDescription(
+        [
+          "━━━━━━━━━━━━━━━━━━━━",
+          "",
+          `💰 **Bet:** \`${bet.toLocaleString()} coins\``,
+          "",
+          `🧑 **Your Hand:** \`${sum(player)}\``,
+          `🎩 **Dealer Shows:** \`${dealer[0]}\``,
+          "",
+          "━━━━━━━━━━━━━━━━━━━━",
+          "",
+          `🎲 *${vibe}*`,
+        ].join("\n")
+      )
+      .setImage(
+        "https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif"
+      )
+      .setFooter({ text: "Casino Royale • Blackjack Table" });
+
     return interaction.reply({
-      content: `🃏 You: ${sum(player)} | Dealer: ${dealer[0]}`,
+      embeds: [embed],
       components: [row],
     });
   },
