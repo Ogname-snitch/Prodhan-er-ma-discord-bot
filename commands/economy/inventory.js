@@ -3,94 +3,73 @@ const User = require("../../utils/database");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("inventory")
-    .setDescription("🎒 View inventory")
-    .addUserOption(option =>
-      option
-        .setName("user")
-        .setDescription("User")
-        .setRequired(false)
-    ),
+    .setName("leaderboard")
+    .setDescription("🏆 Richest users"),
 
   async execute(interaction) {
-    try {
-      const target =
-        interaction.options.getUser("user") || interaction.user;
 
-      const user = await User.findOne({ userId: target.id });
+    const users = await User.find()
+      .sort({ wallet: -1 })
+      .limit(10);
 
-      if (!user) {
-        return interaction.reply({
-          content: "🎒 No data found for this user",
-          ephemeral: true,
-        });
-      }
-
-      const inv = user.inventory || [];
-
-      // ================= EMPTY INVENTORY =================
-      if (inv.length === 0) {
-        const emptyEmbed = new EmbedBuilder()
-          .setColor(0x2b2d31)
-          .setTitle(`🎒 ${target.username}'s Inventory`)
-          .setDescription(
-            [
-              "━━━━━━━━━━━━━━━━━━━━━━",
-              "",
-              "📦 This inventory is empty",
-              "",
-              "💡 Go buy items or use commands to collect loot!",
-              "",
-              "━━━━━━━━━━━━━━━━━━━━━━",
-            ].join("\n")
-          );
-
-        return interaction.reply({
-          embeds: [emptyEmbed],
-        });
-      }
-
-      // ================= FORMAT ITEMS =================
-      const formatted = inv
-        .map((i, index) => {
-          const icon = "📦";
-
-          return [
-            `**#${index + 1} ${icon} ${i.item}**`,
-            `└─ Quantity: \`${i.amount.toLocaleString()}\``,
-            ""
-          ].join("\n");
-        })
-        .join("\n");
-
-      // ================= EMBED =================
-      const embed = new EmbedBuilder()
-        .setColor(0x2b2d31)
-        .setTitle(`🎒 ${target.username}'s Inventory`)
-        .setDescription(
-          [
-            "━━━━━━━━━━━━━━━━━━━━━━",
-            "",
-            formatted,
-            "━━━━━━━━━━━━━━━━━━━━━━",
-            "",
-            `📊 Total Items: \`${inv.length}\``,
-          ].join("\n")
-        )
-        .setThumbnail(target.displayAvatarURL({ dynamic: true }))
-        .setFooter({ text: "Inventory System • RPG Items" });
-
+    if (!users.length) {
       return interaction.reply({
-        embeds: [embed],
-      });
-
-    } catch (err) {
-      console.log("INVENTORY ERROR:", err);
-
-      return interaction.reply({
-        content: "❌ Inventory failed",
+        content: "❌ No users found",
         ephemeral: true,
       });
     }
+
+    const medals = ["🥇", "🥈", "🥉"];
+
+    // ================= CLEAN FORMAT =================
+    const leaderboard = users.map((u, i) => {
+      const rank = i + 1;
+      const medal = medals[i] || "🏅";
+
+      return [
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "",
+        `${medal} **Rank #${rank}**`,
+        `👤 <@${u.userId}>`,
+        `💰 Balance: **${(u.wallet || 0).toLocaleString()} coins**`,
+        ""
+      ].join("\n");
+    }).join("\n");
+
+    const topUser = users[0];
+
+    const embed = new EmbedBuilder()
+      .setColor(0xffd700)
+      .setTitle("🏆 GLOBAL WEALTH LEADERBOARD")
+      .setDescription(
+        [
+          "💰 **Top 10 Richest Players**",
+          "",
+          "━━━━━━━━━━━━━━━━━━━━━━",
+          "",
+          leaderboard,
+          "━━━━━━━━━━━━━━━━━━━━━━",
+        ].join("\n")
+      )
+      .setThumbnail(
+        "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+      )
+      .addFields(
+        {
+          name: "👑 Top Player",
+          value: `<@${topUser.userId}>`,
+          inline: true,
+        },
+        {
+          name: "💰 Wealth",
+          value: `**${(topUser.wallet || 0).toLocaleString()} coins**`,
+          inline: true,
+        }
+      )
+      .setFooter({ text: "Economy Leaderboard • Live Rankings" });
+
+    return interaction.reply({
+      embeds: [embed],
+    });
   },
 };
