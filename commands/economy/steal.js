@@ -1,12 +1,20 @@
 const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
-const cooldown = 60000; // 1 min
-const jailTime = 10 * 60 * 1000; // 10 min
+const cooldown = 60000;
+const jailTime = 10 * 60 * 1000;
 
 function formatTime(ms) {
   const sec = Math.ceil(ms / 1000);
   return `${sec}s`;
+}
+
+// ================= ROBBER PERK CALC =================
+function getRobberMultiplier(level = 1) {
+  if (level >= 4) return 1.45;
+  if (level >= 3) return 1.40;
+  if (level >= 2) return 1.35;
+  return 1.30; // level 1
 }
 
 module.exports = {
@@ -37,13 +45,13 @@ module.exports = {
       return interaction.reply(`🚔 You're in jail for **${left}**`);
     }
 
-    // ================= COOLDOWN CHECK =================
+    // ================= COOLDOWN =================
     if (user.lastSteal && now - user.lastSteal < cooldown) {
       const left = formatTime(cooldown - (now - user.lastSteal));
       return interaction.reply(`⏳ Cooldown: **${left} remaining**`);
     }
 
-    // ================= CHECK MASK =================
+    // ================= MASK CHECK =================
     const maskIndex = user.inventory.findIndex(
       i => i.item.toLowerCase() === "ski masks" && i.amount > 0
     );
@@ -51,7 +59,6 @@ module.exports = {
     if (maskIndex === -1)
       return interaction.reply("❌ You need a ski mask");
 
-    // consume mask
     user.inventory[maskIndex].amount--;
 
     if (user.inventory[maskIndex].amount <= 0)
@@ -67,10 +74,10 @@ module.exports = {
     let failChance = 0.35;
 
     if (user.perk === "Robber") {
-      failChance = 0.175;
+      failChance = 0.5; // base perk definition you gave
     }
 
-    // ================= FAIL =================
+    // failure
     if (Math.random() < failChance) {
       user.jailUntil = now + jailTime;
       user.lastSteal = now;
@@ -80,18 +87,21 @@ module.exports = {
       return interaction.reply("🚨 Caught! You got sent to jail for 10 minutes");
     }
 
-    // ================= SAFE STEAL AMOUNT =================
-    let maxSteal = Math.floor(target.wallet * 0.5); // can only steal up to 50%
+    // ================= STEAL CALC =================
+    let maxSteal = Math.floor(target.wallet * 0.5);
     if (maxSteal < 1) maxSteal = 1;
 
     let stolen = Math.floor(Math.random() * maxSteal) + 1;
 
-    // perk boost
+    // ================= PERK BOOST =================
     if (user.perk === "Robber") {
-      stolen = Math.floor(stolen * 1.3);
+      const level = user.perkUpgrades || 1;
+      const mult = getRobberMultiplier(level);
+
+      stolen = Math.floor(stolen * mult);
     }
 
-    // FINAL SAFETY CHECK
+    // ================= SAFETY LIMIT =================
     stolen = Math.min(stolen, target.wallet);
 
     // ================= TRANSFER =================
@@ -103,6 +113,8 @@ module.exports = {
     await user.save();
     await target.save();
 
-    return interaction.reply(`🕵️ You stole **${stolen.toLocaleString()} coins** from ${targetUser.username}`);
+    return interaction.reply(
+      `🕵️ You stole **${stolen.toLocaleString()} coins** from ${targetUser.username}`
+    );
   },
 };
