@@ -28,20 +28,57 @@ module.exports = {
 
       const inv = user.inventory || [];
 
+      // ================= EMPTY INVENTORY =================
       if (inv.length === 0) {
-        return interaction.reply(
-          `🎒 ${target.username} has no items`
-        );
+        const emptyEmbed = new EmbedBuilder()
+          .setColor(0x2b2d31)
+          .setTitle(`🎒 ${target.username}'s Inventory`)
+          .setDescription(
+            [
+              "━━━━━━━━━━━━━━━━━━━━━━",
+              "",
+              "📦 This inventory is empty",
+              "",
+              "💡 Go buy items or use commands to collect loot!",
+              "",
+              "━━━━━━━━━━━━━━━━━━━━━━",
+            ].join("\n")
+          );
+
+        return interaction.reply({
+          embeds: [emptyEmbed],
+        });
       }
 
-      const text = inv
-        .map(i => `• ${i.item} x${i.amount}`)
+      // ================= FORMAT ITEMS =================
+      const formatted = inv
+        .map((i, index) => {
+          const icon = "📦";
+
+          return [
+            `**#${index + 1} ${icon} ${i.item}**`,
+            `└─ Quantity: \`${i.amount.toLocaleString()}\``,
+            ""
+          ].join("\n");
+        })
         .join("\n");
 
+      // ================= EMBED =================
       const embed = new EmbedBuilder()
+        .setColor(0x2b2d31)
         .setTitle(`🎒 ${target.username}'s Inventory`)
-        .setDescription(text)
-        .setColor("Blue");
+        .setDescription(
+          [
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "",
+            formatted,
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "",
+            `📊 Total Items: \`${inv.length}\``,
+          ].join("\n")
+        )
+        .setThumbnail(target.displayAvatarURL({ dynamic: true }))
+        .setFooter({ text: "Inventory System • RPG Items" });
 
       return interaction.reply({
         embeds: [embed],
