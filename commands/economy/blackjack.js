@@ -28,8 +28,8 @@ const vibes = [
 
 // 🎰 LUIGI CASINO GIF (converted usable format)
 const LUIGI_GIF =
-  "https://media.tenor.com/5c0q6qv5Qv0AAAAC/luigi-casino.gif"; // working Tenor CDN-style link
-
+  "https://media.giphy.com/media/3o7aD2saalBwwftBIY/giphy.gif";
+  
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("blackjack")

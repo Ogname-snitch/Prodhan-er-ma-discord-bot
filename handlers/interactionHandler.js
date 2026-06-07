@@ -160,89 +160,96 @@ module.exports = (client) => {
       }
     }
 
-    //BLACKJACK
-
+    // =========================
+    // 🃏 BLACKJACK FIX (IMPORTANT)
+    // =========================
     if (interaction.customId === "hit" || interaction.customId === "stand") {
-  const blackjack = client.commands.get("blackjack");
-  if (!blackjack) return interaction.deferUpdate().catch(() => {});
 
-  const game = blackjack.games?.get(interaction.user.id);
-  if (!game) return interaction.deferUpdate().catch(() => {});
-
-  const user = await blackjack.getUser(interaction.user.id);
-
-  const p = game.player;
-  const d = game.dealer;
-
-  try {
-
-    // ================= HIT =================
-    if (interaction.customId === "hit") {
-
-      p.push(blackjack.draw());
-
-      const playerScore = blackjack.sum(p);
-
-      // BUST
-      if (playerScore > 21) {
-        blackjack.games.delete(interaction.user.id);
-
-        user.wallet -= game.bet;
-        await user.save();
-
-        return interaction.update({
-          content: `💥 Bust! You lost **${game.bet} coins**`,
-          components: [],
-        }).catch(() => interaction.deferUpdate().catch(() => {}));
+      // 🚨 ALWAYS ACK FIRST (fixes "interaction failed")
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferUpdate().catch(() => {});
       }
 
-      return interaction.update({
-        content: `🃏 **You:** ${playerScore} | 🧠 Dealer: ${d[0]}`,
-        components: interaction.message.components,
-      }).catch(() => interaction.deferUpdate().catch(() => {}));
-    }
+      const blackjack = client.commands.get("blackjack");
+      if (!blackjack) return;
 
-    // ================= STAND =================
-    if (interaction.customId === "stand") {
+      const game = blackjack.games?.get(interaction.user.id);
+      if (!game) return;
 
-      while (blackjack.sum(d) < 17) {
-        d.push(blackjack.draw());
+      const user = await blackjack.getUser(interaction.user.id);
+
+      const p = game.player;
+      const d = game.dealer;
+
+      try {
+
+        // ================= HIT =================
+        if (interaction.customId === "hit") {
+
+          p.push(blackjack.draw());
+
+          const playerScore = blackjack.sum(p);
+
+          // BUST
+          if (playerScore > 21) {
+            blackjack.games.delete(interaction.user.id);
+
+            user.wallet -= game.bet;
+            await user.save();
+
+            return interaction.editReply({
+              content: `💥 Bust! You lost **${game.bet} coins**`,
+              components: [],
+            }).catch(() => {});
+          }
+
+          return interaction.editReply({
+            content: `🃏 **You:** ${playerScore} | 🧠 Dealer: ${d[0]}`,
+            components: interaction.message.components,
+          }).catch(() => {});
+        }
+
+        // ================= STAND =================
+        if (interaction.customId === "stand") {
+
+          while (blackjack.sum(d) < 17) {
+            d.push(blackjack.draw());
+          }
+
+          const ps = blackjack.sum(p);
+          const ds = blackjack.sum(d);
+
+          blackjack.games.delete(interaction.user.id);
+
+          let result;
+
+          if (ds > 21 || ps > ds) {
+            user.wallet += game.bet;
+            result = `🎉 You won **${game.bet} coins**`;
+          } else if (ps < ds) {
+            user.wallet -= game.bet;
+            result = `💀 You lost **${game.bet} coins**`;
+          } else {
+            result = "🤝 **Tie Game**";
+          }
+
+          await user.save();
+
+          return interaction.editReply({
+            content: `🃏 **You:** ${ps} | 🧠 Dealer: ${ds}\n\n${result}`,
+            components: [],
+          }).catch(() => {});
+        }
+
+      } catch (err) {
+        console.log("Blackjack interaction error:", err);
+
+        return interaction.followUp({
+          content: "❌ Blackjack error occurred",
+          ephemeral: true,
+        }).catch(() => {});
       }
-
-      const ps = blackjack.sum(p);
-      const ds = blackjack.sum(d);
-
-      blackjack.games.delete(interaction.user.id);
-
-      let result;
-
-      if (ds > 21 || ps > ds) {
-        user.wallet += game.bet;
-        result = `🎉 You won **${game.bet} coins**`;
-      } else if (ps < ds) {
-        user.wallet -= game.bet;
-        result = `💀 You lost **${game.bet} coins**`;
-      } else {
-        result = "🤝 **Tie Game**";
-      }
-
-      await user.save();
-
-      return interaction.update({
-        content: `🃏 **You:** ${ps} | 🧠 Dealer: ${ds}\n\n${result}`,
-        components: [],
-      }).catch(() => interaction.deferUpdate().catch(() => {}));
     }
-
-  } catch (err) {
-    console.log("Blackjack interaction error:", err);
-
-    // LAST RESORT: prevents "Interaction Failed"
-    if (!interaction.replied && !interaction.deferred) {
-      return interaction.deferUpdate().catch(() => {});
-    }
-  }
-}
 
     // expose multipliers
     interaction.client._getEcoMultiplier = getEconomyMultiplier;
