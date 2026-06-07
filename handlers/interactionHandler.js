@@ -48,10 +48,49 @@ module.exports = (client) => {
         await command.execute(interaction, client);
 
         // ⭐ LEVEL SYSTEM (UNCHANGED)
+
+const noXpCommands = [
+  "level",
+  "balance",
+  "leaderboard",
+  "sell",
+  "buy",
+  "shop",
+  "xpshop",
+];
+
         const user = await User.getUser(interaction.user.id);
 
-        user.xp = (user.xp || 0) + 1;
+// ❌ BLOCK XP FOR CERTAIN COMMANDS
+const noXpCommands = [
+  "level",
+  "balance",
+  "leaderboard",
+  "sell",
+  "buy",
+  "shop",
+  "xpshop",
+];
 
+if (!noXpCommands.includes(interaction.commandName)) {
+  user.xp = (user.xp || 0) + 1;
+
+  let required = getRequiredXP(user.level);
+
+  while (user.xp >= required) {
+    user.xp -= required;
+    user.level += 1;
+
+    const reward = getLevelReward(user.level);
+    user.points = (user.points || 0) + reward;
+
+    await interaction.channel?.send(
+      `🎉 ${interaction.user} reached **Level ${user.level}**!\n⭐ +${reward} points`
+    ).catch(() => {});
+
+    required = getRequiredXP(user.level);
+  }
+}
         let required = getRequiredXP(user.level);
 
         while (user.xp >= required) {
