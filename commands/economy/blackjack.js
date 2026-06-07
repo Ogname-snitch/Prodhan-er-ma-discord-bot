@@ -8,7 +8,8 @@ const {
 
 const User = require("../../utils/database");
 
-const games = new Map();
+global.blackjackGames = global.blackjackGames || new Map();
+const games = global.blackjackGames;
 
 function draw() {
   return Math.floor(Math.random() * 11) + 1;
@@ -25,6 +26,54 @@ const vibes = [
   "🔥 Luck is bending reality...",
   "🎲 Fortune is watching you closely...",
 ];
+
+// ✅ FIXED GIF (reliable CDN)
+const LUIGI_GIF =
+  "https://media.tenor.com/5c0q6qv5Qv0AAAAC/luigi-casino.gif";
+
+// 🎮 button builder (IMPORTANT FIX)
+function getButtons(disabled = false) {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("hit")
+      .setLabel("HIT")
+      .setEmoji("🃏")
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(disabled),
+
+    new ButtonBuilder()
+      .setCustomId("stand")
+      .setLabel("STAND")
+      .setEmoji("🛑")
+      .setStyle(ButtonStyle.Danger)
+      .setDisabled(disabled)
+  );
+}
+
+// 🎰 embed builder (IMPORTANT FIX)
+function buildEmbed({ bet, player, dealer, vibe, result = null }) {
+  const ps = sum(player);
+
+  return new EmbedBuilder()
+    .setColor(0x111111)
+    .setTitle("🃏 BLACKJACK CASINO TABLE")
+    .setDescription(
+      [
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "",
+        `💰 **Bet:** \`${bet.toLocaleString()} coins\``,
+        "",
+        `🧑 **You:** \`${ps}\``,
+        `🎩 **Dealer:** \`${dealer[0]}\``,
+        "",
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        "",
+        result ? `🏆 ${result}` : `🎲 *${vibe}*`,
+      ].join("\n")
+    )
+    .setImage(LUIGI_GIF)
+    .setFooter({ text: "🎰 Luigi Casino • Blackjack Table" });
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -49,7 +98,7 @@ module.exports = {
     let player = [draw(), draw()];
     const dealer = [draw(), draw()];
 
-    // ⭐ Alcoholic perk bonus
+    // ⭐ Alcoholic perk
     if (user.perk === "Alcoholic") {
       const lvl = user.perkLevel || 1;
       const chance = 0.20 + (lvl - 1) * 0.05;
@@ -61,49 +110,17 @@ module.exports = {
 
     games.set(interaction.user.id, { bet, player, dealer });
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("hit")
-        .setLabel("HIT")
-        .setEmoji("🃏")
-        .setStyle(ButtonStyle.Success),
-
-      new ButtonBuilder()
-        .setCustomId("stand")
-        .setLabel("STAND")
-        .setEmoji("🛑")
-        .setStyle(ButtonStyle.Danger)
-    );
-
     const vibe = vibes[Math.floor(Math.random() * vibes.length)];
 
-    const embed = new EmbedBuilder()
-      .setColor(0x111111)
-      .setTitle("🃏 BLACKJACK CASINO TABLE")
-      .setDescription(
-        [
-          "━━━━━━━━━━━━━━━━━━━━━━",
-          "",
-          `💰 **Bet Placed:** \`${bet.toLocaleString()} coins\``,
-          "",
-          `🧑 **Your Hand:** \`${sum(player)}\``,
-          `🎩 **Dealer Shows:** \`${dealer[0]}\``,
-          "",
-          "━━━━━━━━━━━━━━━━━━━━━━",
-          "",
-          `🎲 *${vibe}*`,
-        ].join("\n")
-      )
-      .setImage("https://media.tenor.com/5c0q6qv5Qv0AAAAC/luigi-casino.gif")
-      .setFooter({ text: "🎰 Luigi Casino • Blackjack Table" });
-
     return interaction.reply({
-      embeds: [embed],
-      components: [row],
+      embeds: [buildEmbed({ bet, player, dealer, vibe })],
+      components: [getButtons(false)],
     });
   },
 
   games,
   draw,
   sum,
+  getButtons,
+  buildEmbed,
 };
