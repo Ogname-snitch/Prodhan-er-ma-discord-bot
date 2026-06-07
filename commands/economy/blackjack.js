@@ -18,14 +18,17 @@ function sum(arr) {
   return arr.reduce((a, b) => a + b, 0);
 }
 
-// ================= CASINO UI HELPERS =================
 const vibes = [
   "🎰 The table is tense...",
-  "🃏 The dealer is watching you closely...",
-  "💰 High stakes... no mercy...",
-  "🔥 The crowd is holding its breath...",
-  "🎲 Fortune is deciding your fate...",
+  "🃏 Dealer is calculating your doom...",
+  "💰 High stakes… no backing out now...",
+  "🔥 Luck is bending reality...",
+  "🎲 Fortune is watching you closely...",
 ];
+
+// 🎰 LUIGI CASINO GIF (converted usable format)
+const LUIGI_GIF =
+  "https://media.tenor.com/5c0q6qv5Qv0AAAAC/luigi-casino.gif"; // working Tenor CDN-style link
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -47,17 +50,16 @@ module.exports = {
     if (user.wallet < bet)
       return interaction.reply({ content: "❌ Not enough money", ephemeral: true });
 
-    // ================= INITIAL HANDS =================
     let player = [draw(), draw()];
     const dealer = [draw(), draw()];
 
-    // ⭐ PERK BONUS (Alcoholic instant strong hand chance)
+    // ⭐ Alcoholic perk bonus
     if (user.perk === "Alcoholic") {
       const lvl = user.perkLevel || 1;
       const chance = 0.20 + (lvl - 1) * 0.05;
 
       if (Math.random() < chance) {
-        player = [10, 11]; // near blackjack
+        player = [10, 11];
       }
     }
 
@@ -80,26 +82,24 @@ module.exports = {
     const vibe = vibes[Math.floor(Math.random() * vibes.length)];
 
     const embed = new EmbedBuilder()
-      .setColor(0x0f0f0f)
-      .setTitle("🃏 BLACKJACK TABLE")
+      .setColor(0x111111)
+      .setTitle("🃏 BLACKJACK CASINO TABLE")
       .setDescription(
         [
-          "━━━━━━━━━━━━━━━━━━━━",
+          "━━━━━━━━━━━━━━━━━━━━━━",
           "",
-          `💰 **Bet:** \`${bet.toLocaleString()} coins\``,
+          `💰 **Bet Placed:** \`${bet.toLocaleString()} coins\``,
           "",
           `🧑 **Your Hand:** \`${sum(player)}\``,
           `🎩 **Dealer Shows:** \`${dealer[0]}\``,
           "",
-          "━━━━━━━━━━━━━━━━━━━━",
+          "━━━━━━━━━━━━━━━━━━━━━━",
           "",
           `🎲 *${vibe}*`,
         ].join("\n")
       )
-      .setImage(
-        "https://tenor.com/view/luigi-casino-gif-18158832090148544636"
-      )
-      .setFooter({ text: "Casino Royale • Blackjack Table" });
+      .setImage(LUIGI_GIF)
+      .setFooter({ text: "🎰 Luigi Casino • Blackjack Table" });
 
     return interaction.reply({
       embeds: [embed],
