@@ -14,7 +14,7 @@ function getLevelReward(level) {
   return 60;
 }
 
-// ⭐ NEW: level buff helpers (ADDED ONLY)
+// ⭐ NEW: level buff helpers
 function getEconomyMultiplier(level) {
   if (level >= 15) return 1.4;
   if (level >= 5) return 1.2;
@@ -47,67 +47,43 @@ module.exports = (client) => {
       try {
         await command.execute(interaction, client);
 
-        // ⭐ LEVEL SYSTEM (UNCHANGED)
-
-const noXpCommands = [
-  "level",
-  "balance",
-  "leaderboard",
-  "sell",
-  "buy",
-  "shop",
-  "xpshop",
-];
-
+        // =========================
+        // LEVEL SYSTEM (FIXED CLEAN VERSION)
+        // =========================
         const user = await User.getUser(interaction.user.id);
 
-// ❌ BLOCK XP FOR CERTAIN COMMANDS
-const noXpCommands = [
-  "level",
-  "balance",
-  "leaderboard",
-  "sell",
-  "buy",
-  "shop",
-  "xpshop",
-];
+        const noXpCommands = [
+          "level",
+          "balance",
+          "leaderboard",
+          "sell",
+          "buy",
+          "shop",
+          "xpshop",
+        ];
 
-if (!noXpCommands.includes(interaction.commandName)) {
-  user.xp = (user.xp || 0) + 1;
+        if (!noXpCommands.includes(interaction.commandName)) {
 
-  let required = getRequiredXP(user.level);
+          user.xp = (user.xp || 0) + 1;
 
-  while (user.xp >= required) {
-    user.xp -= required;
-    user.level += 1;
+          let required = getRequiredXP(user.level);
 
-    const reward = getLevelReward(user.level);
-    user.points = (user.points || 0) + reward;
+          while (user.xp >= required) {
+            user.xp -= required;
+            user.level += 1;
 
-    await interaction.channel?.send(
-      `🎉 ${interaction.user} reached **Level ${user.level}**!\n⭐ +${reward} points`
-    ).catch(() => {});
+            const reward = getLevelReward(user.level);
+            user.points = (user.points || 0) + reward;
 
-    required = getRequiredXP(user.level);
-  }
-}
-        let required = getRequiredXP(user.level);
+            interaction.channel?.send(
+              `🎉 ${interaction.user} reached **Level ${user.level}**!\n⭐ +${reward} points`
+            ).catch(() => {});
 
-        while (user.xp >= required) {
-          user.xp -= required;
-          user.level += 1;
+            required = getRequiredXP(user.level);
+          }
 
-          const reward = getLevelReward(user.level);
-          user.points = (user.points || 0) + reward;
-
-          await interaction.channel?.send(
-            `🎉 ${interaction.user} reached **Level ${user.level}**!\n⭐ +${reward} points`
-          ).catch(() => {});
-
-          required = getRequiredXP(user.level);
+          await user.save();
         }
-
-        await user.save();
 
       } catch (err) {
         console.log("❌ Slash command error:", err);
@@ -154,7 +130,7 @@ if (!noXpCommands.includes(interaction.commandName)) {
     // =========================
     if (!interaction.isButton()) return;
 
-    // ================= SELL SYSTEM =================
+    // SELL
     if (interaction.customId.startsWith("sell_")) {
       const sellCommand = client.commands.get("sell");
 
@@ -169,35 +145,22 @@ if (!noXpCommands.includes(interaction.commandName)) {
         return await sellCommand.sellHandler(interaction, User);
       } catch (err) {
         console.log("❌ Sell handler error:", err);
-
-        return interaction.reply({
-          content: "❌ Sell failed",
-          ephemeral: true,
-        }).catch(() => {});
       }
     }
 
-    // ================= XP SHOP (FULL FIX ADDED - SAFE) =================
+    // XP SHOP
     const xpShop = client.commands.get("xpshop");
 
-    if (xpShop && typeof xpShop.xpShopHandler === "function") {
+    if (xpShop?.xpShopHandler) {
       try {
         const handled = await xpShop.xpShopHandler(interaction, User);
-
-        // IMPORTANT: only stop if handler actually processed it
         if (handled !== false) return;
-
       } catch (err) {
         console.log("❌ XP Shop error:", err);
-
-        return interaction.reply({
-          content: "❌ XP Shop failed",
-          ephemeral: true,
-        }).catch(() => {});
       }
     }
 
-    // ================= BLACKJACK =================
+    // BLACKJACK
     if (interaction.customId === "hit" || interaction.customId === "stand") {
 
       const blackjack = client.commands.get("blackjack");
@@ -265,10 +228,7 @@ if (!noXpCommands.includes(interaction.commandName)) {
       }
     }
 
-    // =========================
-    // ⭐ NEW (SAFE ADDITION HOOKS — NO BREAKING CHANGES)
-    // =========================
-
+    // expose multipliers
     interaction.client._getEcoMultiplier = getEconomyMultiplier;
     interaction.client._getFishMultiplier = getFishMultiplier;
   });
