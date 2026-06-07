@@ -3,86 +3,94 @@ const User = require("../../utils/database");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("leaderboard")
-    .setDescription("🏆 Richest users"),
+    .setName("inventory")
+    .setDescription("🎒 View inventory")
+    .addUserOption(option =>
+      option
+        .setName("user")
+        .setDescription("User")
+        .setRequired(false)
+    ),
 
   async execute(interaction) {
+    try {
+      const target =
+        interaction.options.getUser("user") || interaction.user;
 
-    const users = await User.find()
-      .sort({ wallet: -1 })
-      .limit(10);
+      const user = await User.findOne({ userId: target.id });
 
-    if (!users.length) {
+      if (!user) {
+        return interaction.reply({
+          content: "🎒 No data found for this user",
+          ephemeral: true,
+        });
+      }
+
+      const inv = user.inventory || [];
+
+      // ================= EMPTY INVENTORY =================
+      if (inv.length === 0) {
+        const emptyEmbed = new EmbedBuilder()
+          .setColor(0x2b2d31)
+          .setTitle(`🎒 ${target.username}'s Inventory`)
+          .setDescription(
+            [
+              "━━━━━━━━━━━━━━━━━━━━━━",
+              "",
+              "📦 This inventory is empty",
+              "",
+              "💡 Go buy items or use commands to collect loot!",
+              "",
+              "━━━━━━━━━━━━━━━━━━━━━━",
+            ].join("\n")
+          );
+
+        return interaction.reply({
+          embeds: [emptyEmbed],
+        });
+      }
+
+      // ================= FORMAT ITEMS =================
+      const formatted = inv
+        .map((i, index) => {
+          const icon = "📦";
+
+          return [
+            `**#${index + 1} ${icon} ${i.item}**`,
+            `└─ Quantity: \`${i.amount.toLocaleString()}\``,
+            ""
+          ].join("\n");
+        })
+        .join("\n");
+
+      // ================= EMBED =================
+      const embed = new EmbedBuilder()
+        .setColor(0x2b2d31)
+        .setTitle(`🎒 ${target.username}'s Inventory`)
+        .setDescription(
+          [
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "",
+            formatted,
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "",
+            `📊 Total Items: \`${inv.length}\``,
+          ].join("\n")
+        )
+        .setThumbnail(target.displayAvatarURL({ dynamic: true }))
+        .setFooter({ text: "Inventory System • RPG Items" });
+
       return interaction.reply({
-        content: "❌ No users found",
+        embeds: [embed],
+      });
+
+    } catch (err) {
+      console.log("INVENTORY ERROR:", err);
+
+      return interaction.reply({
+        content: "❌ Inventory failed",
         ephemeral: true,
       });
     }
-
-    const medals = ["🥇", "🥈", "🥉"];
-
-    // ================= CLEAN CARD STYLE =================
-    const leaderboard = users.map((u, i) => {
-      const rank = i + 1;
-      const medal = medals[i] || "🏅";
-
-      const name = `<@${u.userId}>`;
-      const balance = (u.wallet || 0).toLocaleString();
-
-      return [
-        `**${medal} Rank #${rank}**`,
-        `👤 ${name}`,
-        `💰 ${balance} coins`,
-        "━━━━━━━━━━━━━━━━━━"
-      ].join("\n");
-    }).join("\n\n");
-
-    const topUser = users[0];
-
-    const embed = new EmbedBuilder()
-      .setColor(0xf1c40f)
-      .setTitle("🏆 GLOBAL WEALTH LEADERBOARD")
-      .setDescription(
-        [
-          "💰 **Top 10 Richest Players in the Economy**",
-          "",
-          "```",
-          "Rank  | Player              | Balance",
-          "--------------------------------------",
-          "```",
-          "",
-          leaderboard,
-          "",
-          "━━━━━━━━━━━━━━━━━━━━━━",
-        ].join("\n")
-      )
-      .setThumbnail(
-        interaction.client.user.displayAvatarURL()
-      )
-      .addFields(
-        {
-          name: "👑 King of Wealth",
-          value: `<@${topUser.userId}>`,
-          inline: true,
-        },
-        {
-          name: "💰 Total Cash",
-          value: `**${(topUser.wallet || 0).toLocaleString()} coins**`,
-          inline: true,
-        },
-        {
-          name: "🏆 Players Ranked",
-          value: `**${users.length}**`,
-          inline: true,
-        }
-      )
-      .setFooter({
-        text: "🏦 Economy System • Live Rankings",
-      })
-      .setTimestamp();
-
-    return interaction.reply({
-      embeds: [embed],
-    });
   },
 };
