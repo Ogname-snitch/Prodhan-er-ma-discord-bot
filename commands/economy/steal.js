@@ -1,8 +1,13 @@
 const { SlashCommandBuilder } = require("discord.js");
 const User = require("../../utils/database");
 
-const cooldown = 60000;
-const jailTime = 10 * 60 * 1000;
+const cooldown = 60000; // 1 min
+const jailTime = 10 * 60 * 1000; // 10 min
+
+function formatTime(ms) {
+  const sec = Math.ceil(ms / 1000);
+  return `${sec}s`;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -15,6 +20,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
+
     const targetUser = interaction.options.getUser("user");
 
     if (targetUser.id === interaction.user.id)
@@ -25,11 +31,21 @@ module.exports = {
 
     const now = Date.now();
 
-    if (user.jailUntil > now)
-      return interaction.reply(`🚔 You're in jail`);
+    // ================= JAIL CHECK =================
+    if (user.jailUntil > now) {
+      const left = formatTime(user.jailUntil - now);
+      return interaction.reply(`🚔 You're in jail for **${left}**`);
+    }
 
+    // ================= COOLDOWN CHECK =================
+    if (user.lastSteal && now - user.lastSteal < cooldown) {
+      const left = formatTime(cooldown - (now - user.lastSteal));
+      return interaction.reply(`⏳ Cooldown: **${left} remaining**`);
+    }
+
+    // ================= CHECK MASK =================
     const maskIndex = user.inventory.findIndex(
-      i => i.item === "ski masks" && i.amount > 0
+      i => i.item.toLowerCase() === "ski masks" && i.amount > 0
     );
 
     if (maskIndex === -1)
@@ -37,38 +53,48 @@ module.exports = {
 
     // consume mask
     user.inventory[maskIndex].amount--;
+
     if (user.inventory[maskIndex].amount <= 0)
       user.inventory.splice(maskIndex, 1);
 
     user.markModified("inventory");
 
-    if (now - user.lastSteal < cooldown)
-      return interaction.reply("⏳ Cooldown");
-
-    if (target.wallet <= 0)
+    // ================= TARGET CHECK =================
+    if (!target.wallet || target.wallet <= 0)
       return interaction.reply("❌ Target has no money");
 
+    // ================= FAIL CHANCE =================
     let failChance = 0.35;
 
-    // 🟣 Robber perk
     if (user.perk === "Robber") {
-      failChance = 0.175; // 50% lower
+      failChance = 0.175;
     }
 
+    // ================= FAIL =================
     if (Math.random() < failChance) {
       user.jailUntil = now + jailTime;
       user.lastSteal = now;
+
       await user.save();
 
-      return interaction.reply("🚨 Caught!");
+      return interaction.reply("🚨 Caught! You got sent to jail for 10 minutes");
     }
 
-    let stolen = Math.floor(Math.random() * target.wallet);
+    // ================= SAFE STEAL AMOUNT =================
+    let maxSteal = Math.floor(target.wallet * 0.5); // can only steal up to 50%
+    if (maxSteal < 1) maxSteal = 1;
 
+    let stolen = Math.floor(Math.random() * maxSteal) + 1;
+
+    // perk boost
     if (user.perk === "Robber") {
       stolen = Math.floor(stolen * 1.3);
     }
 
+    // FINAL SAFETY CHECK
+    stolen = Math.min(stolen, target.wallet);
+
+    // ================= TRANSFER =================
     target.wallet -= stolen;
     user.wallet += stolen;
 
@@ -77,6 +103,6 @@ module.exports = {
     await user.save();
     await target.save();
 
-    return interaction.reply(`🕵️ Stole ${stolen} coins`);
+    return interaction.reply(`🕵️ You stole **${stolen.toLocaleString()} coins** from ${targetUser.username}`);
   },
 };
