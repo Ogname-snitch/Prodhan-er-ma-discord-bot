@@ -29,11 +29,6 @@ module.exports = {
 💰 Cost: 20 Points
 📦 Current Space: ${user.bankSpace}
 
-🔒 **Security Upgrade**
-➕ +5% Catch Protection
-📊 Current: ${user.securityLevel * 5}% / 70%
-💰 Cost: 30 Points
-
 ✨ **Perk Upgrade**
 🔧 Unlock stronger perks
 📊 ${user.perkUpgrades}/3 upgrades
@@ -47,11 +42,6 @@ module.exports = {
         .setCustomId("xp_bank")
         .setLabel("🏦 Bank +5000")
         .setStyle(ButtonStyle.Primary),
-
-      new ButtonBuilder()
-        .setCustomId("xp_security")
-        .setLabel("🔒 Security +5%")
-        .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
         .setCustomId("xp_perk")
@@ -73,7 +63,10 @@ module.exports = {
     // ================= BANK =================
     if (interaction.customId === "xp_bank") {
       if (user.points < 20) {
-        return interaction.reply({ content: "❌ Need 20 Points", ephemeral: true });
+        return interaction.reply({
+          content: "❌ Need 20 Points",
+          ephemeral: true,
+        });
       }
 
       user.points -= 20;
@@ -87,35 +80,20 @@ module.exports = {
       });
     }
 
-    // ================= SECURITY =================
-    if (interaction.customId === "xp_security") {
-      if (user.points < 30) {
-        return interaction.reply({ content: "❌ Need 30 Points", ephemeral: true });
-      }
-
-      if (user.securityLevel >= 14) {
-        return interaction.reply({ content: "❌ Security already maxed (70%)", ephemeral: true });
-      }
-
-      user.points -= 30;
-      user.securityLevel += 1;
-
-      await user.save();
-
-      return interaction.reply({
-        content: `🔒 Security increased to ${user.securityLevel * 5}%`,
-        ephemeral: true,
-      });
-    }
-
     // ================= PERK =================
     if (interaction.customId === "xp_perk") {
       if (user.points < 50) {
-        return interaction.reply({ content: "❌ Need 50 Points", ephemeral: true });
+        return interaction.reply({
+          content: "❌ Need 50 Points",
+          ephemeral: true,
+        });
       }
 
       if (user.perkUpgrades >= 3) {
-        return interaction.reply({ content: "❌ Perk maxed (3/3)", ephemeral: true });
+        return interaction.reply({
+          content: "❌ Perk maxed (3/3)",
+          ephemeral: true,
+        });
       }
 
       user.points -= 50;
