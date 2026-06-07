@@ -13,7 +13,7 @@ async function getUser(id) {
       userId: id,
       perk: "None",
       bank: 0,
-      bankSpace: 1000,
+      bankSpace: 10000,
       wallet: 0,
     });
   }

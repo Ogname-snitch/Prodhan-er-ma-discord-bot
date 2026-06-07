@@ -140,6 +140,20 @@ module.exports = (client) => {
       }
     }
 
+    // ================= XP SHOP =================
+
+const xpShop = client.commands.get("xpshop");
+
+if (
+  xpShop &&
+  typeof xpShop.xpShopHandler === "function"
+) {
+  const handled =
+    await xpShop.xpShopHandler(interaction, User);
+
+  if (handled !== false) return;
+}
+
     // ================= BLACKJACK =================
     if (interaction.customId === "hit" || interaction.customId === "stand") {
 
