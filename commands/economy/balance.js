@@ -73,7 +73,7 @@ module.exports = {
         }
       )
       .setFooter({
-        text: "Economy System • Clean UI",
+        text: "Your Balance",
       });
 
     return interaction.reply({ embeds: [embed] });
