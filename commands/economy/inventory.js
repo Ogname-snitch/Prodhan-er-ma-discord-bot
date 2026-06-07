@@ -21,52 +21,65 @@ module.exports = {
 
     const medals = ["🥇", "🥈", "🥉"];
 
-    // ================= CLEAN FORMAT =================
+    // ================= CLEAN CARD STYLE =================
     const leaderboard = users.map((u, i) => {
       const rank = i + 1;
       const medal = medals[i] || "🏅";
 
+      const name = `<@${u.userId}>`;
+      const balance = (u.wallet || 0).toLocaleString();
+
       return [
-        "━━━━━━━━━━━━━━━━━━━━━━",
-        "",
-        `${medal} **Rank #${rank}**`,
-        `👤 <@${u.userId}>`,
-        `💰 Balance: **${(u.wallet || 0).toLocaleString()} coins**`,
-        ""
+        `**${medal} Rank #${rank}**`,
+        `👤 ${name}`,
+        `💰 ${balance} coins`,
+        "━━━━━━━━━━━━━━━━━━"
       ].join("\n");
-    }).join("\n");
+    }).join("\n\n");
 
     const topUser = users[0];
 
     const embed = new EmbedBuilder()
-      .setColor(0xffd700)
+      .setColor(0xf1c40f)
       .setTitle("🏆 GLOBAL WEALTH LEADERBOARD")
       .setDescription(
         [
-          "💰 **Top 10 Richest Players**",
+          "💰 **Top 10 Richest Players in the Economy**",
           "",
-          "━━━━━━━━━━━━━━━━━━━━━━",
+          "```",
+          "Rank  | Player              | Balance",
+          "--------------------------------------",
+          "```",
           "",
           leaderboard,
+          "",
           "━━━━━━━━━━━━━━━━━━━━━━",
         ].join("\n")
       )
       .setThumbnail(
-        "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+        interaction.client.user.displayAvatarURL()
       )
       .addFields(
         {
-          name: "👑 Top Player",
+          name: "👑 King of Wealth",
           value: `<@${topUser.userId}>`,
           inline: true,
         },
         {
-          name: "💰 Wealth",
+          name: "💰 Total Cash",
           value: `**${(topUser.wallet || 0).toLocaleString()} coins**`,
+          inline: true,
+        },
+        {
+          name: "🏆 Players Ranked",
+          value: `**${users.length}**`,
           inline: true,
         }
       )
-      .setFooter({ text: "Economy Leaderboard • Live Rankings" });
+      .setFooter({
+        text: "🏦 Economy System • Live Rankings",
+      })
+      .setTimestamp();
 
     return interaction.reply({
       embeds: [embed],
