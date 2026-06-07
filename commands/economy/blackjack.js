@@ -97,7 +97,7 @@ module.exports = {
         ].join("\n")
       )
       .setImage(
-        "https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif"
+        "https://tenor.com/view/luigi-casino-gif-18158832090148544636"
       )
       .setFooter({ text: "Casino Royale • Blackjack Table" });
 
