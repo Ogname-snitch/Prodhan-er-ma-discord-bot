@@ -160,112 +160,123 @@ module.exports = (client) => {
       }
     }
     // =========================
-    // 🃏 BLACKJACK (FULL FIXED VERSION)
-    // =========================
+  // =========================
+// 🃏 BLACKJACK (FULL FIXED VERSION)
+// =========================
 
-    if (interaction.customId === "hit" || interaction.customId === "stand") {
+if (interaction.customId === "hit" || interaction.customId === "stand") {
 
-      const blackjack = client.commands.get("blackjack");
-      if (!blackjack) return interaction.deferUpdate().catch(() => {});
+  const blackjack = client.commands.get("blackjack");
+  if (!blackjack) return interaction.deferUpdate().catch(() => {});
 
-      // 🔥 FIX: global-safe game store (prevents broken instances)
-      const games =
-        blackjack.games ||
-        global.blackjackGames;
+  const games =
+    blackjack.games ||
+    global.blackjackGames;
 
-      const game = games?.get(interaction.user.id);
-      if (!game) return interaction.deferUpdate().catch(() => {});
+  const game = games?.get(interaction.user.id);
+  if (!game) return interaction.deferUpdate().catch(() => {});
 
-      // 🚨 MUST ACK IMMEDIATELY (prevents "interaction failed")
-      await interaction.deferUpdate().catch(() => {});
+  // 🚨 MUST ACK IMMEDIATELY
+  await interaction.deferUpdate().catch(() => {});
 
-      let user;
+  const User = require("../utils/database");
 
-      try {
-        const User = require("../utils/database");
-const user = await User.getUser(interaction.user.id);
-      } catch (err) {
-        console.log("Blackjack user fetch error:", err);
+  let user;
+  try {
+    user = await User.getUser(interaction.user.id);
+  } catch (err) {
+    console.log("Blackjack user fetch error:", err);
+    return interaction.editReply({
+      content: "❌ Blackjack error (user load failed)",
+      components: [],
+    }).catch(() => {});
+  }
+
+  const p = game.player;
+  const d = game.dealer;
+
+  // 🎯 REBUILD BUTTONS (FIXES ALL BUTTON BREAKS)
+  const row = new (require("discord.js").ActionRowBuilder)().addComponents(
+    new (require("discord.js").ButtonBuilder)()
+      .setCustomId("hit")
+      .setLabel("HIT")
+      .setStyle(require("discord.js").ButtonStyle.Success),
+
+    new (require("discord.js").ButtonBuilder)()
+      .setCustomId("stand")
+      .setLabel("STAND")
+      .setStyle(require("discord.js").ButtonStyle.Danger)
+  );
+
+  try {
+
+    // ================= HIT =================
+    if (interaction.customId === "hit") {
+
+      p.push(blackjack.draw());
+
+      const ps = blackjack.sum(p);
+
+      // ❌ BUST
+      if (ps > 21) {
+        games.delete(interaction.user.id);
+
+        user.wallet -= game.bet;
+        await user.save();
+
         return interaction.editReply({
-          content: "❌ Blackjack error (user load failed)",
+          content: `💥 **BUST!** You lost **${game.bet.toLocaleString()} coins**`,
           components: [],
         }).catch(() => {});
       }
 
-      const p = game.player;
-      const d = game.dealer;
-
-      try {
-
-        // ================= HIT =================
-        if (interaction.customId === "hit") {
-
-          p.push(blackjack.draw());
-
-          const ps = blackjack.sum(p);
-
-          // ❌ BUST
-          if (ps > 21) {
-            games.delete(interaction.user.id);
-
-            user.wallet -= game.bet;
-            await user.save();
-
-            return interaction.editReply({
-              content: `💥 **BUST!** You lost **${game.bet.toLocaleString()} coins**`,
-              components: [],
-            }).catch(() => {});
-          }
-
-          // ✅ SAFE HIT UPDATE
-          return interaction.editReply({
-            content: `🃏 **You:** ${ps} | 🧠 Dealer shows: ${d[0]}`,
-            components: interaction.message.components,
-          }).catch(() => {});
-        }
-
-        // ================= STAND =================
-        if (interaction.customId === "stand") {
-
-          while (blackjack.sum(d) < 17) {
-            d.push(blackjack.draw());
-          }
-
-          const ps = blackjack.sum(p);
-          const ds = blackjack.sum(d);
-
-          games.delete(interaction.user.id);
-
-          let result;
-
-          if (ds > 21 || ps > ds) {
-            user.wallet += game.bet;
-            result = `🎉 You WON **${game.bet.toLocaleString()} coins**`;
-          } else if (ps < ds) {
-            user.wallet -= game.bet;
-            result = `💀 You LOST **${game.bet.toLocaleString()} coins**`;
-          } else {
-            result = "🤝 **PUSH (Tie)**";
-          }
-
-          await user.save();
-
-          return interaction.editReply({
-            content: `🃏 **You:** ${ps} | 🧠 Dealer: ${ds}\n\n${result}`,
-            components: [],
-          }).catch(() => {});
-        }
-
-      } catch (err) {
-        console.log("Blackjack interaction error:", err);
-
-        return interaction.editReply({
-          content: "❌ Blackjack system error",
-          components: [],
-        }).catch(() => {});
-      }
+      return interaction.editReply({
+        content: `🃏 **You:** ${ps} | 🧠 Dealer shows: ${d[0]}`,
+        components: [row],
+      }).catch(() => {});
     }
 
+    // ================= STAND =================
+    if (interaction.customId === "stand") {
+
+      while (blackjack.sum(d) < 17) {
+        d.push(blackjack.draw());
+      }
+
+      const ps = blackjack.sum(p);
+      const ds = blackjack.sum(d);
+
+      games.delete(interaction.user.id);
+
+      let result;
+
+      if (ds > 21 || ps > ds) {
+        user.wallet += game.bet;
+        result = `🎉 You WON **${game.bet.toLocaleString()} coins**`;
+      } else if (ps < ds) {
+        user.wallet -= game.bet;
+        result = `💀 You LOST **${game.bet.toLocaleString()} coins**`;
+      } else {
+        result = "🤝 **PUSH (Tie)**";
+      }
+
+      await user.save();
+
+      return interaction.editReply({
+        content: `🃏 **You:** ${ps} | 🧠 Dealer: ${ds}\n\n${result}`,
+        components: [],
+      }).catch(() => {});
+    }
+
+  } catch (err) {
+    console.log("Blackjack interaction error:", err);
+
+    return interaction.editReply({
+      content: "❌ Blackjack system error",
+      components: [],
+    }).catch(() => {});
+  }
+}
     // expose multipliers
     interaction.client._getEcoMultiplier = getEconomyMultiplier;
     interaction.client._getFishMultiplier = getFishMultiplier;
