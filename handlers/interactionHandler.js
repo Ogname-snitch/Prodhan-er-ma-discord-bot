@@ -161,28 +161,24 @@ module.exports = (client) => {
     }
     // =========================
   // =========================
-// 🃏 BLACKJACK (FULL FIXED VERSION)
+// 🃏 BLACKJACK (FIXED EMBED UI)
 // =========================
-
 if (interaction.customId === "hit" || interaction.customId === "stand") {
 
   const blackjack = client.commands.get("blackjack");
   if (!blackjack) return interaction.deferUpdate().catch(() => {});
 
-  const games =
-    blackjack.games ||
-    global.blackjackGames;
-
+  const games = blackjack.games || global.blackjackGames;
   const game = games?.get(interaction.user.id);
+
   if (!game) return interaction.deferUpdate().catch(() => {});
 
-  // 🚨 MUST ACK IMMEDIATELY
   await interaction.deferUpdate().catch(() => {});
 
-  const User = require("../utils/database");
-
   let user;
+
   try {
+    const User = require("../utils/database");
     user = await User.getUser(interaction.user.id);
   } catch (err) {
     console.log("Blackjack user fetch error:", err);
@@ -195,29 +191,18 @@ if (interaction.customId === "hit" || interaction.customId === "stand") {
   const p = game.player;
   const d = game.dealer;
 
-  // 🎯 REBUILD BUTTONS (FIXES ALL BUTTON BREAKS)
-  const row = new (require("discord.js").ActionRowBuilder)().addComponents(
-    new (require("discord.js").ButtonBuilder)()
-      .setCustomId("hit")
-      .setLabel("HIT")
-      .setStyle(require("discord.js").ButtonStyle.Success),
-
-    new (require("discord.js").ButtonBuilder)()
-      .setCustomId("stand")
-      .setLabel("STAND")
-      .setStyle(require("discord.js").ButtonStyle.Danger)
-  );
+  const draw = blackjack.draw;
+  const sum = blackjack.sum;
 
   try {
 
     // ================= HIT =================
     if (interaction.customId === "hit") {
 
-      p.push(blackjack.draw());
+      p.push(draw());
 
-      const ps = blackjack.sum(p);
+      const ps = sum(p);
 
-      // ❌ BUST
       if (ps > 21) {
         games.delete(interaction.user.id);
 
@@ -225,26 +210,47 @@ if (interaction.customId === "hit" || interaction.customId === "stand") {
         await user.save();
 
         return interaction.editReply({
-          content: `💥 **BUST!** You lost **${game.bet.toLocaleString()} coins**`,
+          embeds: [
+            {
+              color: 0xff0000,
+              title: "💥 BUST!",
+              description: `You went over 21\n\n💸 Lost **${game.bet.toLocaleString()} coins**`,
+              footer: { text: "🃏 Blackjack Table" },
+            },
+          ],
           components: [],
         }).catch(() => {});
       }
 
       return interaction.editReply({
-        content: `🃏 **You:** ${ps} | 🧠 Dealer shows: ${d[0]}`,
-        components: [row],
+        embeds: [
+          {
+            color: 0x111111,
+            title: "🃏 BLACKJACK TABLE",
+            description: [
+              "━━━━━━━━━━━━━━━━",
+              "",
+              `🧑 **You:** ${ps}`,
+              `🎩 **Dealer:** ${d[0]}`,
+              "",
+              "━━━━━━━━━━━━━━━━",
+              "🎲 Game in progress...",
+            ].join("\n"),
+          },
+        ],
+        components: interaction.message.components,
       }).catch(() => {});
     }
 
     // ================= STAND =================
     if (interaction.customId === "stand") {
 
-      while (blackjack.sum(d) < 17) {
-        d.push(blackjack.draw());
+      while (sum(d) < 17) {
+        d.push(draw());
       }
 
-      const ps = blackjack.sum(p);
-      const ds = blackjack.sum(d);
+      const ps = sum(p);
+      const ds = sum(d);
 
       games.delete(interaction.user.id);
 
@@ -252,18 +258,32 @@ if (interaction.customId === "hit" || interaction.customId === "stand") {
 
       if (ds > 21 || ps > ds) {
         user.wallet += game.bet;
-        result = `🎉 You WON **${game.bet.toLocaleString()} coins**`;
+        result = `🎉 YOU WIN **${game.bet.toLocaleString()} coins**`;
       } else if (ps < ds) {
         user.wallet -= game.bet;
-        result = `💀 You LOST **${game.bet.toLocaleString()} coins**`;
+        result = `💀 YOU LOSE **${game.bet.toLocaleString()} coins**`;
       } else {
-        result = "🤝 **PUSH (Tie)**";
+        result = "🤝 PUSH (TIE)";
       }
 
       await user.save();
 
       return interaction.editReply({
-        content: `🃏 **You:** ${ps} | 🧠 Dealer: ${ds}\n\n${result}`,
+        embeds: [
+          {
+            color: 0x00ff99,
+            title: "🃏 BLACKJACK RESULTS",
+            description: [
+              "━━━━━━━━━━━━━━━━",
+              "",
+              `🧑 **You:** ${ps}`,
+              `🎩 **Dealer:** ${ds}`,
+              "",
+              "━━━━━━━━━━━━━━━━",
+              result,
+            ].join("\n"),
+          },
+        ],
         components: [],
       }).catch(() => {});
     }
