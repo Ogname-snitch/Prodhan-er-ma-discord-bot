@@ -41,6 +41,11 @@ const userSchema = new mongoose.Schema({
   bank: { type: Number, default: 0 },
   bankSpace: { type: Number, default: 1000 },
 
+  // ⭐ LEVEL SYSTEM ADDED
+  level: { type: Number, default: 0 },
+  xp: { type: Number, default: 0 },
+  points: { type: Number, default: 0 },
+
   createdAt: { type: Number, default: Date.now },
 });
 
@@ -59,6 +64,9 @@ userSchema.statics.getUser = async function (id) {
       perkClaimed: false,
       jailUntil: 0,
       bankJailUntil: 0,
+      level: 0,
+      xp: 0,
+      points: 0,
     });
   }
 

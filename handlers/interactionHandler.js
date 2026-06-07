@@ -1,7 +1,18 @@
 const { Events } = require("discord.js");
-
-// safe import
 const User = require("../utils/database");
+
+function getRequiredXP(level) {
+  return 50 + (level * 10);
+}
+
+function getLevelReward(level) {
+  if (level === 1) return 30;
+  if (level === 2) return 35;
+  if (level === 3) return 40;
+  if (level === 4) return 50;
+  if (level === 5) return 60;
+  return 60;
+}
 
 module.exports = (client) => {
   client.on(Events.InteractionCreate, async (interaction) => {
@@ -22,6 +33,30 @@ module.exports = (client) => {
 
       try {
         await command.execute(interaction, client);
+
+        // ⭐ LEVEL SYSTEM (XP + LEVEL UP)
+        const user = await User.getUser(interaction.user.id);
+
+        user.xp = (user.xp || 0) + 1;
+
+        let required = getRequiredXP(user.level);
+
+        while (user.xp >= required) {
+          user.xp -= required;
+          user.level += 1;
+
+          const reward = getLevelReward(user.level);
+          user.points = (user.points || 0) + reward;
+
+          await interaction.channel?.send(
+            `🎉 ${interaction.user} reached **Level ${user.level}**!\n⭐ +${reward} points`
+          ).catch(() => {});
+
+          required = getRequiredXP(user.level);
+        }
+
+        await user.save();
+
       } catch (err) {
         console.log("❌ Slash command error:", err);
 
