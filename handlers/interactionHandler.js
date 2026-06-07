@@ -182,7 +182,8 @@ module.exports = (client) => {
       let user;
 
       try {
-        user = await blackjack.getUser(interaction.user.id);
+        const User = require("../utils/database");
+const user = await User.getUser(interaction.user.id);
       } catch (err) {
         console.log("Blackjack user fetch error:", err);
         return interaction.editReply({
