@@ -93,34 +93,32 @@ const rarityIcons = {
 };
 
 // ================= PICK FUNCTION =================
-function getRandomFish() {
+function getRandomFish(hasFisherPerk = false) {
   const roll = Math.random() * 100;
 
   let rarity;
 
-  if (roll < 30) {
-    rarity = "Trash";
-  }
-  else if (roll < 70) {
-    rarity = "Common";
-  }
-  else if (roll < 85) {
-    rarity = "Uncommon";
-  }
-  else if (roll < 92.5) {
-    rarity = "Rare";
-  }
-  else if (roll < 95.5) {
-    rarity = "Epic";
-  }
-  else if (roll < 98) {
-    rarity = "Legendary";
-  }
-  else if (roll < 99.5) {
-    rarity = "Mythic";
-  }
-  else {
-    rarity = "Vent";
+  if (!hasFisherPerk) {
+
+    if (roll < 30) rarity = "Trash";
+    else if (roll < 70) rarity = "Common";
+    else if (roll < 85) rarity = "Uncommon";
+    else if (roll < 92.5) rarity = "Rare";
+    else if (roll < 95.5) rarity = "Epic";
+    else if (roll < 98) rarity = "Legendary";
+    else if (roll < 99.5) rarity = "Mythic";
+    else rarity = "Vent";
+
+  } else {
+
+    if (roll < 25) rarity = "Trash";
+    else if (roll < 55) rarity = "Common";
+    else if (roll < 70) rarity = "Uncommon";
+    else if (roll < 82.5) rarity = "Rare";
+    else if (roll < 90.5) rarity = "Epic";
+    else if (roll < 96) rarity = "Legendary";
+    else if (roll < 99) rarity = "Mythic";
+    else rarity = "Vent";
   }
 
   const pool = fishTable.filter(
@@ -129,7 +127,6 @@ function getRandomFish() {
 
   return pool[Math.floor(Math.random() * pool.length)];
 }
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("fish")
