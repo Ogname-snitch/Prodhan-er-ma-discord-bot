@@ -100,24 +100,25 @@ function getRandomFish(hasFisherPerk = false) {
 
   if (!hasFisherPerk) {
 
-    if (roll < 30) rarity = "Trash";
-    else if (roll < 70) rarity = "Common";
-    else if (roll < 85) rarity = "Uncommon";
-    else if (roll < 92.5) rarity = "Rare";
-    else if (roll < 95.5) rarity = "Epic";
-    else if (roll < 98) rarity = "Legendary";
-    else if (roll < 99.5) rarity = "Mythic";
+    if (roll < 15) rarity = "Trash";
+    else if (roll < 45) rarity = "Common";
+    else if (roll < 60) rarity = "Uncommon";
+    else if (roll < 75) rarity = "Rare";
+    else if (roll < 85) rarity = "Epic";
+    else if (roll < 92) rarity = "Legendary";
+    else if (roll < 97) rarity = "Mythic";
     else rarity = "Vent";
 
   } else {
 
-    if (roll < 25) rarity = "Trash";
-    else if (roll < 55) rarity = "Common";
-    else if (roll < 70) rarity = "Uncommon";
-    else if (roll < 82.5) rarity = "Rare";
-    else if (roll < 90.5) rarity = "Epic";
-    else if (roll < 96) rarity = "Legendary";
-    else if (roll < 99) rarity = "Mythic";
+    // Fisher perk = EVEN LESS trash + better rare drops
+    if (roll < 10) rarity = "Trash";
+    else if (roll < 35) rarity = "Common";
+    else if (roll < 55) rarity = "Uncommon";
+    else if (roll < 72) rarity = "Rare";
+    else if (roll < 85) rarity = "Epic";
+    else if (roll < 94) rarity = "Legendary";
+    else if (roll < 98) rarity = "Mythic";
     else rarity = "Vent";
   }
 
@@ -127,6 +128,7 @@ function getRandomFish(hasFisherPerk = false) {
 
   return pool[Math.floor(Math.random() * pool.length)];
 }
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("fish")
