@@ -13,7 +13,21 @@ const begLines = [
   "A Discord mod felt generous for once",
   "You held a sign: 'pls im broke' 💀",
   "Someone mistook you for a charity case",
+  "Prodhan came and pulled out pocket change from his pocket and spat on you",
+  "Tuhid pulled out some of the rewards he won on Jartex and gave you some of it",
+  "Suhaib came and gave you some of the money he pays for his isp",
+  "Yean came and gave you some of th emoney he got from buying a guitar on discount",
+  "Zarif came and gave you some of the money he saved to repay Johan of his testicle",
+  "Johan gave you some money so you pray for his platonic soulmate",
+  "Mashrib gave some money because you remind him of himself",
+  "Shayan gave you some money he won from basketball",
+  "Omar gave you some money he earnt by being an underpaid programmer for Vent Studios",
 ];
+
+// ================= RANDOM MONEY (NEW SYSTEM) =================
+function getBegAmount() {
+  return Math.floor(Math.random() * (5000 - 1000 + 1)) + 1000;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -41,27 +55,27 @@ module.exports = {
     }
 
     // ================= BASE AMOUNT =================
-    let amount = Math.floor(Math.random() * 200) + 1;
+    let amount = getBegAmount();
 
     // ================= BEGGAR PERK =================
     if (user.perk === "Beggar") {
       const level = Math.min(user.perkLevel || 1, 4);
 
-      if (level >= 1) {
-        if (Math.random() < 0.3) {
-          amount = 3000;
-        }
+      // small lucky jackpot chance
+      if (level >= 1 && Math.random() < 0.25) {
+        amount += 2000;
       }
 
+      // scaling bonus per level
       if (level >= 2) {
-        const bonusMultiplier = 1 + ((level - 1) * 0.1);
-        amount = Math.floor(amount * bonusMultiplier);
+        const bonus = 1 + ((level - 1) * 0.15);
+        amount = Math.floor(amount * bonus);
       }
     }
 
     // ================= GLOBAL LEVEL BUFFS =================
-    if (user.level >= 5) amount *= 1.2;
-    if (user.level >= 15) amount *= 1.4;
+    if (user.level >= 5) amount *= 1.1;
+    if (user.level >= 15) amount *= 1.25;
 
     amount = Math.floor(amount);
 
@@ -70,11 +84,11 @@ module.exports = {
 
     await user.save();
 
-    // ================= UI STYLE =================
+    // ================= UI =================
     const line = begLines[Math.floor(Math.random() * begLines.length)];
 
     const embed = new EmbedBuilder()
-      .setColor(amount > 1000 ? 0x00ff99 : 0x2b2d31)
+      .setColor(amount >= 4000 ? 0x00ff99 : 0x2b2d31)
       .setTitle("🥺 Beg Results")
       .setDescription(
         [
@@ -82,9 +96,9 @@ module.exports = {
           "",
           `💰 **You received:** \`${amount.toLocaleString()} coins\``,
           "",
-          amount >= 3000
-            ? "🔥 **LUCKY DROP!**"
-            : "😐 Normal day of begging...",
+          amount >= 4500
+            ? "🔥 **HIGH PAYOUT!**"
+            : "😐 Normal begging luck...",
         ].join("\n")
       )
       .addFields(
@@ -99,7 +113,7 @@ module.exports = {
           inline: true,
         }
       )
-      .setFooter({ text: "Beg System • Random Economy Event" });
+      .setFooter({ text: "Beg System • Economy v2" });
 
     return interaction.reply({ embeds: [embed] });
   },

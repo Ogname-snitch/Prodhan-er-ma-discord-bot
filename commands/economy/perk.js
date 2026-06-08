@@ -23,7 +23,7 @@ module.exports = {
   async execute(interaction) {
     const user = await getUser(interaction.user.id);
 
-    const COST = 50000;
+    const COST = 200000;
 
     // 🎁 FIRST TIME FREE
     if (!user.perkClaimed) {
