@@ -14,6 +14,9 @@ module.exports = {
     const user = await User.getUser(interaction.user.id);
 
     if (bet <= 0) return interaction.reply("❌ Invalid bet");
+    if (bet > 10000) {
+  return interaction.reply("❌ Maximum bet is 10,000 coins");
+}
     if (user.wallet < bet) return interaction.reply("❌ Not enough money");
 
     const roll = () => {
@@ -29,28 +32,37 @@ module.exports = {
     const r2 = roll();
     const r3 = roll();
 
-    let multi = 0;
-    if (r1 === r2 && r2 === r3) multi = 4;
-    else if (r1 === r2 || r2 === r3 || r1 === r3) multi = 1;
+    let winChance = 0.30; // 30% win rate
 
-    let win = bet * multi;
+const isWin = Math.random() < winChance;
 
-    // ⭐ PERK SYSTEM (Alcoholic)
-    if (user.perk === "Alcoholic") {
-      const lvl = user.perkLevel || 1;
+let multi = 0;
+let win = 0;
 
-      const slotBoost = 0.30 + (lvl - 1) * 0.05; // 30% → 45%
+if (isWin) {
+  const r1 = roll();
+  const r2 = Math.random() < 0.5 ? r1 : roll();
+  const r3 = Math.random() < 0.5 ? r1 : roll();
 
-      if (Math.random() < slotBoost && multi > 0) {
-        win = Math.floor(win * 1.5);
-      }
+  if (r1 === r2 && r2 === r3) multi = 4;
+  else multi = 1;
+
+  win = bet * multi;
+
+  // ⭐ PERK SYSTEM (Alcoholic stays working)
+  if (user.perk === "Alcoholic") {
+    const lvl = user.perkLevel || 1;
+    const slotBoost = 0.30 + (lvl - 1) * 0.05;
+
+    if (Math.random() < slotBoost && multi > 0) {
+      win = Math.floor(win * 1.5);
     }
+  }
 
-    if (multi > 0) {
-      user.wallet += win;
-    } else {
-      user.wallet -= bet;
-    }
+  user.wallet += win;
+} else {
+  user.wallet -= bet;
+}
 
     await user.save();
 
