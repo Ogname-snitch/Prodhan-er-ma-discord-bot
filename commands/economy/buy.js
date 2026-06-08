@@ -6,13 +6,13 @@ const User = require("../../utils/database");
 
 // ================= SHOP ITEMS =================
 const items = {
-  "baking equipment": 5000,
-  "gun": 10000,
-  "rifle": 25000,
-  "fishing rod": 5000,
-  "streaming equipment": 20000,
-  "games": 10000,
-  "ski masks": 100,
+  "baking equipment": 25000,
+  "gun": 40000,
+  "rifle": 80000,
+  "fishing rod": 15000,
+  "streaming equipment": 40000,
+  "games": 30000,
+  "ski masks": 500,
 
   // ================= POTIONS (70k tier)
   "worker's coffee": 70000,

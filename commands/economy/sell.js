@@ -52,19 +52,8 @@ const fishPrices = {
   "leviathan scales": 110000,
   "cthulhu's left tentacle": 120000,
   "poseidon's trident fragment": 150000,
-
-  "prodhan's cuck chair": 800000,
-  "zarif's left testicle": 850000,
-  "omar's skateboard": 900000,
-  "mashrib's crush list": 950000,
-  "shayan's broken hand": 975000,
-  "suhaib's isp": 1000000,
-  "johan's soulmate": 1500000,
-  "yean's broken guitar": 1750000,
-  "tuhid's screenshots folder": 2000000,
 };
 
-// ================= 🦌 HUNT ITEM PRICES =================
 const huntPrices = {
   "rotten branch": 100,
   "rusty trap fragment": 100,
@@ -113,21 +102,39 @@ const huntPrices = {
   "amar chehara market e chole na (mashrib)": 1500000,
   poomar: 1500000,
   jewhan: 1700000,
-  lepeckupacer: 1700000,
+  lepecku_pacer: 1700000,
   skyrikzz: 1800000,
   "shooter sharar": 2000000,
   susuwarior: 2500000,
 };
 
-// ================= ITEM PRICE LOOKUP =================
+// ================= SHOP ITEMS (NEW RULE APPLIES HERE ONLY) =================
+const shopItems = {
+  "baking equipment": 5000,
+  gun: 10000,
+  rifle: 25000,
+  "fishing rod": 5000,
+  "streaming equipment": 20000,
+  games: 10000,
+  "ski masks": 100,
+};
+
+// ================= PRICE RESOLVER =================
 function getItemPrice(itemName) {
   const name = itemName.toLowerCase();
 
-  if (name === "cake") {
-    return Math.floor(Math.random() * (5000 - 1000 + 1)) + 1000;
+  // SHOP ITEMS → 75% SELL VALUE
+  if (shopItems[name]) {
+    return Math.floor(shopItems[name] * 0.75);
   }
 
-  return fishPrices[name] || huntPrices[name] || null;
+  // FISH
+  if (fishPrices[name]) return fishPrices[name];
+
+  // HUNT
+  if (huntPrices[name]) return huntPrices[name];
+
+  return null;
 }
 
 // ================= COMMAND =================
@@ -164,7 +171,7 @@ module.exports = {
         new EmbedBuilder()
           .setColor(0x2b2d31)
           .setTitle("💰 Sell Menu")
-          .setDescription("Click an item below to sell it instantly")
+          .setDescription("Click an item below to sell it instantly"),
       ],
       components: rows,
     });
@@ -192,12 +199,12 @@ module.exports = {
 
     if (!price) {
       return interaction.reply({
-        content: "❌ This item has no sell value",
+        content: "❌ This item cannot be sold",
         ephemeral: true,
       });
     }
 
-    const total = found.amount * price;
+    const total = price * found.amount;
 
     user.wallet += total;
 

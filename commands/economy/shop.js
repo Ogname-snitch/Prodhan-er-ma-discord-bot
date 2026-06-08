@@ -16,13 +16,13 @@ module.exports = {
       .setDescription(
 `💻 **EQUIPMENT SHOP**
 ━━━━━━━━━━━━━━━━━━━━━━
-🍰 Baking Equipment — 5,000 coins
-🔫 Gun — 10,000 coins
-🪖 Rifle — 25,000 coins
-🎣 Fishing Rod — 5,000 coins
-📹 Streaming Equipment — 20,000 coins
-🎮 Games — 10,000 coins
-🎭 Ski Masks — 100 coins
+🍰 Baking Equipment — 25,000 coins
+🔫 Gun — 40,000 coins
+🪖 Rifle — 80,000 coins
+🎣 Fishing Rod — 15,000 coins
+📹 Streaming Equipment — 40,000 coins
+🎮 Games — 30,000 coins
+🎭 Ski Masks — 500 coins
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🧪 **POTION SHOP (BUFFS)**

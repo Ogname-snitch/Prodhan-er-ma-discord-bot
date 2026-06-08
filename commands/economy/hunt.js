@@ -4,7 +4,6 @@ const User = require("../../utils/database");
 const cooldown = 20000;
 
 // ================= HUNT TABLE =================
-// (UNCHANGED — I did NOT touch your values)
 const huntTable = [
   { name: "Rotten Branch", emoji: "🌿", rarity: "Trash", value: 100 },
   { name: "Rusty Trap Fragment", emoji: "🪤", rarity: "Trash", value: 100 },
@@ -59,33 +58,33 @@ const huntTable = [
   { name: "Susuwarior", emoji: "📡", rarity: "Vent", value: 2500000 },
 ];
 
-// ================= UPDATED RARITY SYSTEM =================
-function getRandomAnimal() {
+// ================= RARITY SYSTEM =================
+function getRandomAnimal(hasRifle) {
   const roll = Math.random() * 100;
 
   let rarity;
 
-  // 🔻 COMMON & BELOW easier
-  if (roll < 35) rarity = "Trash";
-  else if (roll < 55) rarity = "Common";
-
-  // 🔥 UNCOMMON now slightly rarer
-  else if (roll < 75) rarity = "Uncommon";
-
-  // 🔥 RARE noticeably rarer
-  else if (roll < 85) rarity = "Rare";
-
-  // 🔥 EPIC rare
-  else if (roll < 91) rarity = "Epic";
-
-  // 🔥 LEGENDARY VERY rare
-  else if (roll < 94) rarity = "Legendary";
-
-  // 💀 MYTHIC ultra rare
-  else if (roll < 95.5) rarity = "Mythic";
-
-  // 👑 VENT unchanged (still 4.5% total remaining space)
-  else rarity = "Vent";
+  if (hasRifle) {
+    // 🎯 rifle boosts higher rarities
+    if (roll < 30) rarity = "Trash";
+    else if (roll < 50) rarity = "Common";
+    else if (roll < 70) rarity = "Uncommon";
+    else if (roll < 82) rarity = "Rare";
+    else if (roll < 90) rarity = "Epic";
+    else if (roll < 94) rarity = "Legendary";
+    else if (roll < 96) rarity = "Mythic";
+    else rarity = "Vent";
+  } else {
+    // normal gun hunting
+    if (roll < 35) rarity = "Trash";
+    else if (roll < 55) rarity = "Common";
+    else if (roll < 75) rarity = "Uncommon";
+    else if (roll < 85) rarity = "Rare";
+    else if (roll < 91) rarity = "Epic";
+    else if (roll < 94) rarity = "Legendary";
+    else if (roll < 95.5) rarity = "Mythic";
+    else rarity = "Vent";
+  }
 
   const pool = huntTable.filter(h => h.rarity === rarity);
   return pool[Math.floor(Math.random() * pool.length)];
@@ -107,14 +106,20 @@ module.exports = {
     }
 
     const weapon = user.inventory.find(
-      i => (i.item === "gun" || i.item === "rifle") && i.amount > 0
+      i =>
+        (i.item === "gun" || i.item === "rifle") &&
+        i.amount > 0
     );
 
     if (!weapon) {
       return interaction.reply("❌ You need a gun or rifle");
     }
 
-    const animal = getRandomAnimal();
+    const hasRifle = user.inventory.some(
+      i => i.item === "rifle" && i.amount > 0
+    );
+
+    const animal = getRandomAnimal(hasRifle);
 
     const existing = user.inventory.find(i => i.item === animal.name);
 
