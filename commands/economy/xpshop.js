@@ -37,8 +37,8 @@ module.exports = {
 
 ✨ **Perk Upgrade**
 🔧 Upgrade your current perk level
-📊 Level: **${user.perkLevel}/3**
-🔁 Upgrades: **${user.perkUpgrades}/3**
+📊 Level: **${user.perkLevel}/4**
+🔁 Upgrades: **${user.perkUpgrades}/4**
 💰 Next Cost: **${nextCost} Points**
 
 ━━━━━━━━━━━━━━━`
@@ -94,7 +94,7 @@ module.exports = {
     if (interaction.customId === "xp_perk") {
 
       // max upgrades reached
-      if (user.perkUpgrades >= 3 || user.perkLevel >= 3) {
+      if (user.perkUpgrades >= 4 || user.perkLevel >= 4) {
         return interaction.reply({
           content: "❌ Perk already fully upgraded (MAX LEVEL)",
           ephemeral: true,
@@ -114,12 +114,12 @@ module.exports = {
       user.perkUpgrades += 1;
       user.perkLevel += 1;
 
-      if (user.perkLevel > 3) user.perkLevel = 3;
+      if (user.perkLevel > 4) user.perkLevel = 4;
 
       await user.save();
 
       return interaction.reply({
-        content: `✨ Perk upgraded to **Level ${user.perkLevel}/3**!\n💰 Cost: ${cost} points`,
+        content: `✨ Perk upgraded to **Level ${user.perkLevel}/4**!\n💰 Cost: ${cost} points`,
         ephemeral: true,
       });
     }
