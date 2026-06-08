@@ -43,6 +43,18 @@ const userSchema = new mongoose.Schema({
   xp: { type: Number, default: 0 },
   points: { type: Number, default: 0 },
 
+  // 🧪 NEW POTION SYSTEM (ADDED)
+  activeBoosts: {
+    type: Object,
+    default: {
+      moneyMultiplier: 1,
+      winChanceBonus: 0,
+      xpMultiplier: 1,
+      expiresAt: 0,
+      potionName: null,
+    },
+  },
+
   createdAt: { type: Number, default: Date.now },
 });
 
@@ -59,10 +71,19 @@ userSchema.statics.getUser = async function (id) {
       bankSpace: 1000,
       perk: "None",
 
-      // ✅ NEW DEFAULT
+      // ✅ NEW DEFAULTS
       perkLevel: 1,
-
       perkClaimed: false,
+
+      // 🧪 POTION DEFAULT
+      activeBoosts: {
+        moneyMultiplier: 1,
+        winChanceBonus: 0,
+        xpMultiplier: 1,
+        expiresAt: 0,
+        potionName: null,
+      },
+
       jailUntil: 0,
       bankJailUntil: 0,
       level: 0,
@@ -76,6 +97,17 @@ userSchema.statics.getUser = async function (id) {
 
   // safety fallback for old users
   if (user.perkLevel == null) user.perkLevel = 1;
+
+  // 🧪 safety fallback for potion system
+  if (!user.activeBoosts) {
+    user.activeBoosts = {
+      moneyMultiplier: 1,
+      winChanceBonus: 0,
+      xpMultiplier: 1,
+      expiresAt: 0,
+      potionName: null,
+    };
+  }
 
   return user;
 };

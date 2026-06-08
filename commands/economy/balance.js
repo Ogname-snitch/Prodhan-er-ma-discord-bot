@@ -9,7 +9,6 @@ async function getDominantColor(user) {
     const response = await fetch(url);
     const buffer = await response.arrayBuffer();
 
-    // very simple color grab (fallback-safe)
     const bytes = new Uint8Array(buffer);
 
     let r = 0, g = 0, b = 0;
@@ -28,7 +27,7 @@ async function getDominantColor(user) {
 
     return (r << 16) + (g << 8) + b;
   } catch {
-    return 0x2b2d31; // fallback dark gray
+    return 0x2b2d31;
   }
 }
 
@@ -47,10 +46,17 @@ async function getUser(id) {
       bank: 0,
       bankSpace: 10000,
       wallet: 0,
+
+      // 🧪 NEW DEFAULT
+      activeBoosts: {
+        moneyMultiplier: 1,
+        winChanceBonus: 0,
+        xpMultiplier: 1,
+        expiresAt: 0,
+        potionName: null,
+      },
     });
   }
-
-  if (typeof user.perkLevel !== "number") user.perkLevel = 1;
 
   return user;
 }
@@ -84,6 +90,24 @@ module.exports = {
 
     const color = await getDominantColor(target);
 
+    // ================= POTION LOGIC =================
+    const boost = user.activeBoosts || {};
+    const now = Date.now();
+
+    let potionText = "❌ None";
+
+    if (boost.expiresAt && boost.expiresAt > now) {
+      const timeLeft = Math.ceil((boost.expiresAt - now) / 1000);
+
+      potionText = [
+        `🧪 **${boost.potionName || "Active Potion"}**`,
+        `⚡ Money Boost: x${boost.moneyMultiplier || 1}`,
+        `🎲 Win Chance: +${(boost.winChanceBonus || 0) * 100}%`,
+        `⭐ XP Boost: x${boost.xpMultiplier || 1}`,
+        `⏳ Time Left: ${timeLeft}s`
+      ].join("\n");
+    }
+
     const embed = new EmbedBuilder()
       .setColor(color)
       .setTitle(`💰 ${target.username}'s Balance`)
@@ -103,6 +127,9 @@ module.exports = {
           "",
           "⭐ **Perk Status**",
           `└ ${perkName} [Level ${perkLevel}]`,
+          "",
+          "🧪 **Active Potion**",
+          potionText,
           "",
           "━━━━━━━━━━━━━━━━━━"
         ].join("\n")
