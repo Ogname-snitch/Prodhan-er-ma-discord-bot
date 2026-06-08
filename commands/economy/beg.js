@@ -79,6 +79,9 @@ module.exports = {
 
     amount = Math.floor(amount);
 
+    // ⭐ FINAL HARD CAP (NEW ADDITION)
+    if (amount > 2000) amount = 2000;
+
     user.wallet += amount;
     user.lastBeg = now;
 

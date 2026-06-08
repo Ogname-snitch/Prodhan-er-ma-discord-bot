@@ -65,12 +65,10 @@ module.exports = {
     if (user.perk === "Workaholic") {
       const level = Math.min(user.perkLevel || 1, 4);
 
-      // big multiplier early
       if (level >= 1) {
         amount = Math.floor(amount * 1.5);
       }
 
-      // scaling bonus
       if (level >= 2) {
         const bonusMultiplier = 1 + ((level - 1) * 0.08);
         amount = Math.floor(amount * bonusMultiplier);
@@ -82,6 +80,9 @@ module.exports = {
     if (user.level >= 15) amount *= 1.25;
 
     amount = Math.floor(amount);
+
+    // ⭐⭐⭐ HARD CAP ADDED HERE (IMPORTANT)
+    if (amount > 8000) amount = 8000;
 
     user.wallet += amount;
     user.lastWork = now;
