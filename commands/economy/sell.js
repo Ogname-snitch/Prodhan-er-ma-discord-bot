@@ -64,25 +64,70 @@ const fishPrices = {
   "tuhid's screenshots folder": 2000000,
 };
 
-const itemPrices = {
-  "baking equipment": 2500,
-  gun: 5000,
-  rifle: 12500,
-  "streaming equipment": 10000,
-  games: 5000,
-  "ski masks": 50,
+// ================= 🦌 HUNT ITEM PRICES =================
+const huntPrices = {
+  "rotten branch": 100,
+  "rusty trap fragment": 100,
+  "empty bullet shell": 200,
+  "scraped tree bark": 200,
+  "mundane pebble": 250,
+
+  "wild rabbit": 400,
+  pigeon: 400,
+  "field mouse": 450,
+  squirrel: 500,
+  "wild duck": 500,
+  raccoon: 550,
+
+  "wild boar": 700,
+  "red fox": 850,
+  "white-tailed deer": 1000,
+  coyote: 1100,
+  beaver: 1100,
+  badger: 1100,
+
+  "grizzly bear": 3000,
+  "grey wolf": 3500,
+  cougar: 3500,
+  "bald eagle": 4000,
+  moose: 4500,
+
+  "bengal tiger": 8000,
+  "snow leopard": 8500,
+  "black panther": 9000,
+  "silverback gorilla": 9500,
+  "polar bear": 10000,
+
+  "albino stag": 15000,
+  "sabertooth tiger": 17000,
+  "golden phoenix feather": 19000,
+  "shadow wolf": 25000,
+
+  "dragon scale": 30000,
+  "behemoth horn": 40000,
+  "chimeric tail": 50000,
+  "cerberus collar fragment": 60000,
+
+  tuhid123: 1000000,
+  tbaby: 1100000,
+  "amar chehara market e chole na (mashrib)": 1500000,
+  poomar: 1500000,
+  jewhan: 1700000,
+  lepeckupacer: 1700000,
+  skyrikzz: 1800000,
+  "shooter sharar": 2000000,
+  susuwarior: 2500000,
 };
 
-// ================= SPECIAL ITEM HANDLER =================
+// ================= ITEM PRICE LOOKUP =================
 function getItemPrice(itemName) {
   const name = itemName.toLowerCase();
 
-  // 🍰 CAKE SPECIAL RANGE
   if (name === "cake") {
     return Math.floor(Math.random() * (5000 - 1000 + 1)) + 1000;
   }
 
-  return fishPrices[name] || itemPrices[name];
+  return fishPrices[name] || huntPrices[name] || null;
 }
 
 // ================= COMMAND =================
@@ -111,16 +156,15 @@ module.exports = {
 
     const rows = [];
     for (let i = 0; i < buttons.length; i += 5) {
-      rows.push(
-        new ActionRowBuilder().addComponents(buttons.slice(i, i + 5))
-      );
+      rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 5)));
     }
 
     return interaction.reply({
       embeds: [
         new EmbedBuilder()
+          .setColor(0x2b2d31)
           .setTitle("💰 Sell Menu")
-          .setDescription("Click a button to sell that item instantly"),
+          .setDescription("Click an item below to sell it instantly")
       ],
       components: rows,
     });
@@ -128,13 +172,13 @@ module.exports = {
 
   // ================= BUTTON HANDLER =================
   sellHandler: async (interaction, User) => {
-    const item = interaction.customId.replace("sell_", "");
+    const item = interaction.customId.replace("sell_", "").toLowerCase();
 
     const user = await User.getUser(interaction.user.id);
     const inv = user.inventory || [];
 
     const found = inv.find(
-      (i) => i.item.toLowerCase() === item.toLowerCase()
+      (i) => i.item.toLowerCase() === item
     );
 
     if (!found || found.amount <= 0) {
@@ -143,8 +187,6 @@ module.exports = {
         ephemeral: true,
       });
     }
-
-    const amount = found.amount;
 
     const price = getItemPrice(found.item);
 
@@ -155,18 +197,18 @@ module.exports = {
       });
     }
 
-    const total = amount * price;
+    const total = found.amount * price;
 
     user.wallet += total;
 
     user.inventory = inv.filter(
-      (i) => i.item.toLowerCase() !== item.toLowerCase()
+      (i) => i.item.toLowerCase() !== item
     );
 
     await user.save();
 
     return interaction.reply({
-      content: `💰 Sold **${found.item}** (${amount}x) for **${total.toLocaleString()} coins**`,
+      content: `💰 Sold **${found.item}** (${found.amount}x) for **${total.toLocaleString()} coins**`,
       ephemeral: true,
     });
   },

@@ -43,16 +43,16 @@ const huntTable = [
   { name: "Polar Bear", emoji: "🐻‍❄️", rarity: "Epic", value: 10000 },
 
   // ===== LEGENDARY =====
-  { name: "Albino Stag", emoji: "🦌", rarity: "Legendary", value: 5000000 },
-  { name: "Sabertooth Tiger", emoji: "🐅", rarity: "Legendary", value: 6800000 },
-  { name: "Golden Phoenix Feather", emoji: "🪶", rarity: "Legendary", value: 8500000 },
-  { name: "Shadow Wolf", emoji: "🐺", rarity: "Legendary", value: 10500000 },
+  { name: "Albino Stag", emoji: "🦌", rarity: "Legendary", value: 15000 },
+  { name: "Sabertooth Tiger", emoji: "🐅", rarity: "Legendary", value: 17000 },
+  { name: "Golden Phoenix Feather", emoji: "🪶", rarity: "Legendary", value: 19000 },
+  { name: "Shadow Wolf", emoji: "🐺", rarity: "Legendary", value: 25000 },
 
   // ===== MYTHIC =====
-  { name: "Dragon Scale", emoji: "🐉", rarity: "Mythic", value: 15000 },
-  { name: "Behemoth Horn", emoji: "🦏", rarity: "Mythic", value: 17000 },
-  { name: "Chimeric Tail", emoji: "🐍", rarity: "Mythic", value: 19000 },
-  { name: "Cerberus Collar Fragment", emoji: "🐕", rarity: "Mythic", value: 25000 },
+  { name: "Dragon Scale", emoji: "🐉", rarity: "Mythic", value: 30000 },
+  { name: "Behemoth Horn", emoji: "🦏", rarity: "Mythic", value: 40000 },
+  { name: "Chimeric Tail", emoji: "🐍", rarity: "Mythic", value: 50000 },
+  { name: "Cerberus Collar Fragment", emoji: "🐕", rarity: "Mythic", value: 60000 },
 
   // ===== VENT =====
   { name: "Tuhid123", emoji: "📂", rarity: "Vent", value: 1000000 },
