@@ -58,14 +58,53 @@ const huntTable = [
   { name: "Susuwarior", emoji: "📡", rarity: "Vent", value: 2500000 },
 ];
 
+// ================= HUNTER + NERF GUN SYSTEM (ADDED ONLY) =================
+function applyHunterAndNerfBoost(user, roll) {
+  let newRoll = roll;
+
+  // ================= HUNTER PERK =================
+  if (user.perk === "Hunter") {
+    const level = Math.min(user.perkLevel || 1, 4);
+
+    let boost = 0;
+
+    if (level >= 1) boost += 10;
+    if (level >= 2) boost += 5;
+    if (level >= 3) boost += 5;
+    if (level >= 4) boost += 5;
+
+    // improves chance of Rare+
+    if (newRoll >= 75) {
+      newRoll -= boost;
+    }
+  }
+
+  // ================= NERF GUN EFFECT =================
+  const hasNerfGun = user.inventory?.find(i => i.item === "nerf gun");
+
+  if (hasNerfGun) {
+    // makes worse loot more likely
+    if (newRoll < 70) {
+      newRoll -= 8;
+    } else {
+      newRoll += 5;
+    }
+  }
+
+  return Math.max(0, Math.min(99.9, newRoll));
+}
+
 // ================= RARITY SYSTEM =================
-function getRandomAnimal(hasRifle) {
-  const roll = Math.random() * 100;
+function getRandomAnimal(user, hasRifle) {
+  let roll = Math.random() * 100;
+
+  // ⭐ APPLY NEW PERK SYSTEM (ADDED ONLY)
+  roll = applyHunterAndNerfBoost(user, roll);
 
   let rarity;
 
   if (hasRifle) {
-    // 🎯 rifle boosts higher rarities
+    // rifle boosts higher rarities
     if (roll < 30) rarity = "Trash";
     else if (roll < 50) rarity = "Common";
     else if (roll < 70) rarity = "Uncommon";
@@ -119,7 +158,7 @@ module.exports = {
       i => i.item === "rifle" && i.amount > 0
     );
 
-    const animal = getRandomAnimal(hasRifle);
+    const animal = getRandomAnimal(user, hasRifle);
 
     const existing = user.inventory.find(i => i.item === animal.name);
 

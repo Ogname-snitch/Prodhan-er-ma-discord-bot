@@ -10,6 +10,7 @@ const perks = [
   "Fisher",
   "Streamer",
   "Baker", // ⭐ NEW PERK ADDED
+  "Hunter", // ⭐ ADDED (ONLY ADDITION)
 ];
 
 // ================= USER HELPER =================
@@ -65,6 +66,22 @@ function giveBakingEquipment(user) {
   }
 }
 
+// ================= GIVE NERF GUN (ADDED ONLY) =================
+function giveNerfGun(user) {
+  if (!user.inventory) user.inventory = [];
+
+  const existing = user.inventory.find(
+    (i) => i.item === "nerf gun"
+  );
+
+  if (!existing) {
+    user.inventory.push({
+      item: "nerf gun",
+      amount: 1,
+    });
+  }
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("perk")
@@ -95,6 +112,11 @@ module.exports = {
       // 🍰 BAKER BONUS
       if (random === "Baker") {
         giveBakingEquipment(user);
+      }
+
+      // 🔫 HUNTER BONUS (ADDED)
+      if (random === "Hunter") {
+        giveNerfGun(user);
       }
 
       await user.save();
@@ -129,6 +151,11 @@ module.exports = {
     // 🍰 BAKER BONUS
     if (newPerk === "Baker") {
       giveBakingEquipment(user);
+    }
+
+    // 🔫 HUNTER BONUS (ADDED)
+    if (newPerk === "Hunter") {
+      giveNerfGun(user);
     }
 
     await user.save();
