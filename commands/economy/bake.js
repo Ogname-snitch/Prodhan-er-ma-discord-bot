@@ -20,8 +20,8 @@ const bakeLines = [
   "Tuhid liked the minecraft cake",
   "Johan bought it for his platonic soulmate",
   "Suhaib will gift his ISP a cake in hopes of getting better internet",
-  "Yean bough cake for his concert",
-  "Shayan bought cake for his basketball game",
+  "Yean bought cake for his concert",
+  "Shayan bought cake a for his basketball game",
   "Omar stole Prodhan's cake",
 ];
 

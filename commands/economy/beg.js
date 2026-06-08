@@ -16,7 +16,7 @@ const begLines = [
   "Prodhan came and pulled out pocket change from his pocket and spat on you",
   "Tuhid pulled out some of the rewards he won on Jartex and gave you some of it",
   "Suhaib came and gave you some of the money he pays for his isp",
-  "Yean came and gave you some of th emoney he got from buying a guitar on discount",
+  "Yean came and gave you some of the money he got from buying a guitar on discount",
   "Zarif came and gave you some of the money he saved to repay Johan of his testicle",
   "Johan gave you some money so you pray for his platonic soulmate",
   "Mashrib gave some money because you remind him of himself",

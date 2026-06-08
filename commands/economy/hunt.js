@@ -69,9 +69,9 @@ function applyHunterAndNerfBoost(user, roll) {
     let boost = 0;
 
     if (level >= 1) boost += 10;
-    if (level >= 2) boost += 5;
-    if (level >= 3) boost += 5;
-    if (level >= 4) boost += 5;
+    if (level >= 2) boost += 10;
+    if (level >= 3) boost += 10;
+    if (level >= 4) boost += 10;
 
     // improves chance of Rare+
     if (newRoll >= 75) {
@@ -95,37 +95,79 @@ function applyHunterAndNerfBoost(user, roll) {
 }
 
 // ================= RARITY SYSTEM =================
-function getRandomAnimal(user, hasRifle) {
-  let roll = Math.random() * 100;
+function getRandomAnimal(user, hasRifle, hasNerfGun) {
 
-  // ⭐ APPLY NEW PERK SYSTEM (ADDED ONLY)
-  roll = applyHunterAndNerfBoost(user, roll);
+  const hunterLevel =
+    user.perk === "Hunter"
+      ? Math.min(user.perkLevel || 1, 4)
+      : 0;
+
+  // Hunter Level 4 = Epic+
+  if (hunterLevel >= 4) {
+    const pool = huntTable.filter(
+      h =>
+        h.rarity === "Epic" ||
+        h.rarity === "Legendary" ||
+        h.rarity === "Mythic" ||
+        h.rarity === "Vent"
+    );
+
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // Hunter Level 3 = Rare+
+  if (hunterLevel >= 3) {
+    const pool = huntTable.filter(
+      h =>
+        h.rarity === "Rare" ||
+        h.rarity === "Epic" ||
+        h.rarity === "Legendary" ||
+        h.rarity === "Mythic" ||
+        h.rarity === "Vent"
+    );
+
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  const roll = Math.random() * 100;
 
   let rarity;
 
-  if (hasRifle) {
-    // rifle boosts higher rarities
+  // Nerf Gun (0% Vent)
+  if (hasNerfGun) {
+    if (roll < 50) rarity = "Trash";
+    else if (roll < 85) rarity = "Common";
+    else rarity = "Uncommon";
+  }
+
+  // Rifle (4% Vent)
+  else if (hasRifle) {
     if (roll < 30) rarity = "Trash";
     else if (roll < 50) rarity = "Common";
     else if (roll < 70) rarity = "Uncommon";
-    else if (roll < 82) rarity = "Rare";
-    else if (roll < 90) rarity = "Epic";
-    else if (roll < 94) rarity = "Legendary";
+    else if (roll < 80) rarity = "Rare";
+    else if (roll < 88) rarity = "Epic";
+    else if (roll < 92) rarity = "Legendary";
     else if (roll < 96) rarity = "Mythic";
     else rarity = "Vent";
-  } else {
-    // normal gun hunting
+  }
+
+  // Gun (1% Vent)
+  else {
     if (roll < 35) rarity = "Trash";
     else if (roll < 55) rarity = "Common";
     else if (roll < 75) rarity = "Uncommon";
     else if (roll < 85) rarity = "Rare";
     else if (roll < 91) rarity = "Epic";
     else if (roll < 94) rarity = "Legendary";
-    else if (roll < 95.5) rarity = "Mythic";
+    else if (roll < 99) rarity = "Mythic";
     else rarity = "Vent";
   }
 
-  const pool = huntTable.filter(h => h.rarity === rarity);
+  const pool = huntTable.filter(
+    h => h.rarity === rarity
+  );
+
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -139,6 +181,26 @@ module.exports = {
     const user = await User.getUser(interaction.user.id);
     const now = Date.now();
 
+    const hasRifleInventory = user.inventory.some(
+  i => i.item === "rifle" && i.amount > 0
+);
+
+const hasGunInventory = user.inventory.some(
+  i => i.item === "gun" && i.amount > 0
+);
+
+if (hasRifleInventory) {
+  user.inventory = user.inventory.filter(
+    i => i.item !== "gun" && i.item !== "nerf gun"
+  );
+}
+
+if (hasGunInventory && !hasRifleInventory) {
+  user.inventory = user.inventory.filter(
+    i => i.item !== "nerf gun"
+  );
+}
+
     if (now - user.lastHunt < cooldown) {
       const left = Math.ceil((cooldown - (now - user.lastHunt)) / 1000);
       return interaction.reply(`⏳ Wait ${left}s`);
@@ -146,7 +208,9 @@ module.exports = {
 
     const weapon = user.inventory.find(
       i =>
-        (i.item === "gun" || i.item === "rifle") &&
+        (i.item === "nerf gun" ||
+ i.item === "gun" ||
+ i.item === "rifle") &&
         i.amount > 0
     );
 
@@ -158,7 +222,15 @@ module.exports = {
       i => i.item === "rifle" && i.amount > 0
     );
 
-    const animal = getRandomAnimal(user, hasRifle);
+    const hasNerfGun = user.inventory.some(
+  i => i.item === "nerf gun" && i.amount > 0
+);
+
+const animal = getRandomAnimal(
+  user,
+  hasRifle,
+  hasNerfGun
+);
 
     const existing = user.inventory.find(i => i.item === animal.name);
 
