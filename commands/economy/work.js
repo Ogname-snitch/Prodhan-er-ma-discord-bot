@@ -30,7 +30,7 @@ const workLines = [
 
 // ================= RANDOM WORK AMOUNT =================
 function getWorkAmount() {
-  return Math.floor(Math.random() * (20000 - 5000 + 1)) + 5000;
+  return Math.floor(Math.random() * (5000 - 500 + 1)) + 500;
 }
 
 module.exports = {
@@ -81,7 +81,7 @@ module.exports = {
 
     amount = Math.floor(amount);
 
-    // ⭐⭐⭐ HARD CAP ADDED HERE (IMPORTANT)
+    // ⭐ HARD CAP
     if (amount > 8000) amount = 8000;
 
     user.wallet += amount;

@@ -24,9 +24,9 @@ const begLines = [
   "Omar gave you some money he earnt by being an underpaid programmer for Vent Studios",
 ];
 
-// ================= RANDOM MONEY (NEW SYSTEM) =================
+// ================= RANDOM MONEY (UPDATED RANGE) =================
 function getBegAmount() {
-  return Math.floor(Math.random() * (5000 - 1000 + 1)) + 1000;
+  return Math.floor(Math.random() * (1500 - 100 + 1)) + 100;
 }
 
 module.exports = {
@@ -61,12 +61,10 @@ module.exports = {
     if (user.perk === "Beggar") {
       const level = Math.min(user.perkLevel || 1, 4);
 
-      // small lucky jackpot chance
       if (level >= 1 && Math.random() < 0.25) {
         amount += 2000;
       }
 
-      // scaling bonus per level
       if (level >= 2) {
         const bonus = 1 + ((level - 1) * 0.15);
         amount = Math.floor(amount * bonus);
@@ -79,7 +77,7 @@ module.exports = {
 
     amount = Math.floor(amount);
 
-    // ⭐ FINAL HARD CAP (NEW ADDITION)
+    // ⭐ HARD CAP KEPT
     if (amount > 2000) amount = 2000;
 
     user.wallet += amount;
