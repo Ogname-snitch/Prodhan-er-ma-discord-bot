@@ -9,6 +9,7 @@ const perks = [
   "Beggar",
   "Fisher",
   "Streamer",
+  "Baker", // ⭐ NEW PERK ADDED
 ];
 
 // ================= USER HELPER =================
@@ -48,6 +49,22 @@ function giveFishingRod(user) {
   }
 }
 
+// ================= GIVE BAKING EQUIPMENT =================
+function giveBakingEquipment(user) {
+  if (!user.inventory) user.inventory = [];
+
+  const existing = user.inventory.find(
+    (i) => i.item === "baking equipment"
+  );
+
+  if (!existing) {
+    user.inventory.push({
+      item: "baking equipment",
+      amount: 1,
+    });
+  }
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("perk")
@@ -75,6 +92,11 @@ module.exports = {
         giveFishingRod(user);
       }
 
+      // 🍰 BAKER BONUS
+      if (random === "Baker") {
+        giveBakingEquipment(user);
+      }
+
       await user.save();
 
       return interaction.reply(
@@ -94,14 +116,19 @@ module.exports = {
     const newPerk = perks[Math.floor(Math.random() * perks.length)];
     user.perk = newPerk;
 
-    // ⭐ STREAMER BONUS ON REROLL
+    // ⭐ STREAMER BONUS
     if (newPerk === "Streamer") {
       giveMidGamingEquipment(user);
     }
 
-    // 🎣 FISHER BONUS ON REROLL
+    // 🎣 FISHER BONUS
     if (newPerk === "Fisher") {
       giveFishingRod(user);
+    }
+
+    // 🍰 BAKER BONUS
+    if (newPerk === "Baker") {
+      giveBakingEquipment(user);
     }
 
     await user.save();

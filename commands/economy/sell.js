@@ -54,6 +54,7 @@ const fishPrices = {
   "poseidon's trident fragment": 150000,
 };
 
+// ================= HUNT PRICES =================
 const huntPrices = {
   "rotten branch": 100,
   "rusty trap fragment": 100,
@@ -108,7 +109,7 @@ const huntPrices = {
   susuwarior: 2500000,
 };
 
-// ================= SHOP ITEMS (NEW RULE APPLIES HERE ONLY) =================
+// ================= SHOP ITEMS =================
 const shopItems = {
   "baking equipment": 5000,
   gun: 10000,
@@ -119,19 +120,45 @@ const shopItems = {
   "ski masks": 100,
 };
 
+// ================= CAKE SPECIAL SELL VALUE =================
+function getCakePrice(user) {
+  let base = Math.floor(Math.random() * (20000 - 5000 + 1)) + 5000;
+
+  // 🧑‍🍳 BAKER PERK BOOST
+  if ((user.perk || "").toLowerCase() === "baker") {
+    const level = Math.min(user.perkLevel || 1, 4);
+
+    let multiplier = 1;
+
+    if (level >= 1) multiplier += 0.30; // +30% base
+    if (level >= 2) multiplier += 0.05;
+    if (level >= 3) multiplier += 0.05;
+    if (level >= 4) multiplier += 0.05;
+
+    base = Math.floor(base * multiplier);
+  }
+
+  return base;
+}
+
 // ================= PRICE RESOLVER =================
-function getItemPrice(itemName) {
+function getItemPrice(itemName, user) {
   const name = itemName.toLowerCase();
 
-  // SHOP ITEMS → 75% SELL VALUE
+  // 🍰 CAKE SPECIAL
+  if (name === "cake") {
+  return getCakePrice(user);
+}
+
+  // 🛒 SHOP ITEMS (75% VALUE)
   if (shopItems[name]) {
     return Math.floor(shopItems[name] * 0.75);
   }
 
-  // FISH
+  // 🎣 FISH
   if (fishPrices[name]) return fishPrices[name];
 
-  // HUNT
+  // 🦌 HUNT
   if (huntPrices[name]) return huntPrices[name];
 
   return null;
@@ -184,9 +211,7 @@ module.exports = {
     const user = await User.getUser(interaction.user.id);
     const inv = user.inventory || [];
 
-    const found = inv.find(
-      (i) => i.item.toLowerCase() === item
-    );
+    const found = inv.find(i => i.item.toLowerCase() === item);
 
     if (!found || found.amount <= 0) {
       return interaction.reply({
@@ -195,7 +220,7 @@ module.exports = {
       });
     }
 
-    const price = getItemPrice(found.item);
+    const price = getItemPrice(found.item, user);
 
     if (!price) {
       return interaction.reply({

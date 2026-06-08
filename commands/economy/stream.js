@@ -13,7 +13,6 @@ const streamLines = [
   "You got raided by a toxic 12-year-old clan",
   "You became famous for lagging in 144p 📉",
   "Someone clipped your worst moment and it went viral",
-  "You carried a game and instantly called a hacker 🎮",
   "Your mic was muted the entire stream 💀",
   "Prodhan didn't like how the chuzz didnt like the stream",
   "Tuhid liked your minecraft gameplay",
@@ -36,18 +35,21 @@ function applyStreamerPerk(amount, user) {
 
   const level = Math.min(user.perkLevel || 1, 4);
 
-  // Level 1: +50% boost
-  if (level >= 1) {
-    amount *= 1.5;
-  }
+  if (level >= 1) amount *= 1.5;
 
-  // Level 2–4: +5% per extra level
   if (level >= 2) {
     const extraLevels = level - 1;
     amount *= 1 + (extraLevels * 0.05);
   }
 
   return amount;
+}
+
+// ================= CHECK MID GEAR =================
+function hasMidGamingEquipment(user) {
+  return user.inventory?.some(
+    (i) => i.item === "mid gaming equipment" && i.amount > 0
+  );
 }
 
 module.exports = {
@@ -68,31 +70,38 @@ module.exports = {
           new EmbedBuilder()
             .setColor(0xffcc70)
             .setTitle("📹 Chill out!")
-            .setDescription(
-              `You're streaming too often...\n\n⏳ Try again in **${left}s**`
-            )
-            .setFooter({ text: "Even streamers need breaks" }),
+            .setDescription(`You're streaming too often...\n\n⏳ Try again in **${left}s**`)
         ],
         ephemeral: true,
       });
     }
 
-    // ================= REQUIREMENTS =================
+    const hasMidGear = hasMidGamingEquipment(user);
+
     const setup = user.inventory.find(
       (i) => i.item === "streaming equipment"
     );
     const games = user.inventory.find((i) => i.item === "games");
 
-    if (!setup || !games) {
+    // ================= REQUIREMENTS =================
+    if (!hasMidGear && (!setup || !games)) {
       return interaction.reply(
-        "❌ You need Streaming Equipment + Games to stream"
+        "❌ You need Streaming Equipment + Games OR Mid Gaming Equipment"
       );
     }
 
     // ================= BASE EARNINGS =================
-    let amount = getStreamAmount();
+    let amount;
 
-    // ================= STREAMER PERK APPLY =================
+    if (hasMidGear) {
+      // 🎮 MID GEAR STREAM (5K–20K ONLY)
+      amount = Math.floor(Math.random() * (20000 - 5000 + 1)) + 5000;
+    } else {
+      // 🎥 NORMAL STREAM
+      amount = getStreamAmount();
+    }
+
+    // ================= PERK BOOST =================
     amount = applyStreamerPerk(amount, user);
 
     // ================= LEVEL BOOSTS =================
@@ -106,7 +115,6 @@ module.exports = {
 
     await user.save();
 
-    // ================= UI =================
     const line = streamLines[Math.floor(Math.random() * streamLines.length)];
 
     const embed = new EmbedBuilder()
@@ -118,9 +126,9 @@ module.exports = {
           "",
           `💰 **You earned:** \`${amount.toLocaleString()} coins\``,
           "",
-          amount >= 20000
-            ? "🔥 **VIRAL STREAM!**"
-            : "📉 Normal stream session...",
+          hasMidGear
+            ? "🎮 Using Mid Gaming Equipment"
+            : "🎥 Professional Setup Stream",
         ].join("\n")
       )
       .addFields(
@@ -135,7 +143,7 @@ module.exports = {
           inline: true,
         }
       )
-      .setFooter({ text: "Streaming System • Content Creator Mode" });
+      .setFooter({ text: "Streaming System • Creator Mode" });
 
     return interaction.reply({ embeds: [embed] });
   },

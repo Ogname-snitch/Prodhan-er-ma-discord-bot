@@ -3,6 +3,28 @@ const User = require("../../utils/database");
 
 const cooldown = 20000;
 
+// ================= FUNNY BAKING LINES =================
+const bakeLines = [
+  "You tried baking… the smoke alarm is now your co-worker 🚨",
+  "You forgot the sugar and invented emotional damage cake 💀",
+  "The cake looks suspiciously like a rock 🪨",
+  "You followed the recipe perfectly… still got chaos 🍰",
+  "Your oven said 'nah bro' and exploded slightly 🔥",
+  "You baked with love… and a little bit of regret ❤️",
+  "The cake is undercooked but your confidence is high 📈",
+  "You accidentally used salt instead of sugar 😭",
+  "The cake is now a pancake hybrid 🥞",
+  "Even Gordon Ramsay would quit Discord after seeing this 👨‍🍳",
+  "You baked so hard the kitchen filed a complaint 🧑‍⚖️",
+  "Prodhan's cake was stolen by Omar",
+  "Tuhid liked the minecraft cake",
+  "Johan bought it for his platonic soulmate",
+  "Suhaib will gift his ISP a cake in hopes of getting better internet",
+  "Yean bough cake for his concert",
+  "Shayan bought cake for his basketball game",
+  "Omar stole Prodhan's cake",
+];
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("bake")
@@ -63,13 +85,16 @@ module.exports = {
 
     await user.save();
 
+    // ================= RANDOM LINE =================
+    const line = bakeLines[Math.floor(Math.random() * bakeLines.length)];
+
     // ================= SUCCESS EMBED =================
     const embed = new EmbedBuilder()
       .setColor(0xffb347)
       .setTitle("🎂 Baking Successful!")
       .setDescription(
         [
-          "You carefully mix ingredients, preheat the oven, and bake a perfect cake.",
+          `> *${line}*`,
           "",
           "🍰 **Result:** You successfully baked **1 cake**!",
           "",
