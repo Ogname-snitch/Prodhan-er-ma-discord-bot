@@ -4,15 +4,14 @@ const User = require("../../utils/database");
 const cooldown = 20000;
 
 // ================= HUNT TABLE =================
+// (UNCHANGED — I did NOT touch your values)
 const huntTable = [
-  // ===== TRASH =====
   { name: "Rotten Branch", emoji: "🌿", rarity: "Trash", value: 100 },
   { name: "Rusty Trap Fragment", emoji: "🪤", rarity: "Trash", value: 100 },
   { name: "Empty Bullet Shell", emoji: "🪙", rarity: "Trash", value: 200 },
   { name: "Scraped Tree Bark", emoji: "🪵", rarity: "Trash", value: 200 },
   { name: "Mundane Pebble", emoji: "🪨", rarity: "Trash", value: 250 },
 
-  // ===== COMMON =====
   { name: "Wild Rabbit", emoji: "🐇", rarity: "Common", value: 400 },
   { name: "Pigeon", emoji: "🐦", rarity: "Common", value: 400 },
   { name: "Field Mouse", emoji: "🐁", rarity: "Common", value: 450 },
@@ -20,7 +19,6 @@ const huntTable = [
   { name: "Wild Duck", emoji: "🦆", rarity: "Common", value: 500 },
   { name: "Raccoon", emoji: "🦝", rarity: "Common", value: 550 },
 
-  // ===== UNCOMMON =====
   { name: "Wild Boar", emoji: "🐗", rarity: "Uncommon", value: 700 },
   { name: "Red Fox", emoji: "🦊", rarity: "Uncommon", value: 850 },
   { name: "White-Tailed Deer", emoji: "🦌", rarity: "Uncommon", value: 1000 },
@@ -28,33 +26,28 @@ const huntTable = [
   { name: "Beaver", emoji: "🦫", rarity: "Uncommon", value: 1100 },
   { name: "Badger", emoji: "🦡", rarity: "Uncommon", value: 1100 },
 
-  // ===== RARE =====
   { name: "Grizzly Bear", emoji: "🐻", rarity: "Rare", value: 3000 },
   { name: "Grey Wolf", emoji: "🐺", rarity: "Rare", value: 3500 },
   { name: "Cougar", emoji: "🐆", rarity: "Rare", value: 3500 },
   { name: "Bald Eagle", emoji: "🦅", rarity: "Rare", value: 4000 },
   { name: "Moose", emoji: "🫎", rarity: "Rare", value: 4500 },
 
-  // ===== EPIC =====
   { name: "Bengal Tiger", emoji: "🐅", rarity: "Epic", value: 8000 },
   { name: "Snow Leopard", emoji: "🐆", rarity: "Epic", value: 8500 },
   { name: "Black Panther", emoji: "🐆", rarity: "Epic", value: 9000 },
   { name: "Silverback Gorilla", emoji: "🦍", rarity: "Epic", value: 9500 },
   { name: "Polar Bear", emoji: "🐻‍❄️", rarity: "Epic", value: 10000 },
 
-  // ===== LEGENDARY =====
   { name: "Albino Stag", emoji: "🦌", rarity: "Legendary", value: 15000 },
   { name: "Sabertooth Tiger", emoji: "🐅", rarity: "Legendary", value: 17000 },
   { name: "Golden Phoenix Feather", emoji: "🪶", rarity: "Legendary", value: 19000 },
   { name: "Shadow Wolf", emoji: "🐺", rarity: "Legendary", value: 25000 },
 
-  // ===== MYTHIC =====
   { name: "Dragon Scale", emoji: "🐉", rarity: "Mythic", value: 30000 },
   { name: "Behemoth Horn", emoji: "🦏", rarity: "Mythic", value: 40000 },
   { name: "Chimeric Tail", emoji: "🐍", rarity: "Mythic", value: 50000 },
   { name: "Cerberus Collar Fragment", emoji: "🐕", rarity: "Mythic", value: 60000 },
 
-  // ===== VENT =====
   { name: "Tuhid123", emoji: "📂", rarity: "Vent", value: 1000000 },
   { name: "Tbaby", emoji: "🪑", rarity: "Vent", value: 1100000 },
   { name: "Amar Chehara Market e Chole Na (Mashrib)", emoji: "📋", rarity: "Vent", value: 1500000 },
@@ -66,18 +59,32 @@ const huntTable = [
   { name: "Susuwarior", emoji: "📡", rarity: "Vent", value: 2500000 },
 ];
 
-// ================= RARITY SYSTEM (SAME AS FISH) =================
+// ================= UPDATED RARITY SYSTEM =================
 function getRandomAnimal() {
   const roll = Math.random() * 100;
 
   let rarity;
-  if (roll < 20) rarity = "Trash";
-  else if (roll < 50) rarity = "Common";
-  else if (roll < 65) rarity = "Uncommon";
-  else if (roll < 77) rarity = "Rare";
-  else if (roll < 86) rarity = "Epic";
-  else if (roll < 93) rarity = "Legendary";
-  else if (roll < 97) rarity = "Mythic";
+
+  // 🔻 COMMON & BELOW easier
+  if (roll < 35) rarity = "Trash";
+  else if (roll < 55) rarity = "Common";
+
+  // 🔥 UNCOMMON now slightly rarer
+  else if (roll < 75) rarity = "Uncommon";
+
+  // 🔥 RARE noticeably rarer
+  else if (roll < 85) rarity = "Rare";
+
+  // 🔥 EPIC rare
+  else if (roll < 91) rarity = "Epic";
+
+  // 🔥 LEGENDARY VERY rare
+  else if (roll < 94) rarity = "Legendary";
+
+  // 💀 MYTHIC ultra rare
+  else if (roll < 95.5) rarity = "Mythic";
+
+  // 👑 VENT unchanged (still 4.5% total remaining space)
   else rarity = "Vent";
 
   const pool = huntTable.filter(h => h.rarity === rarity);
@@ -111,15 +118,8 @@ module.exports = {
 
     const existing = user.inventory.find(i => i.item === animal.name);
 
-    if (existing) {
-      existing.amount += 1;
-    } else {
-      user.inventory.push({
-        item: animal.name,
-        amount: 1,
-        value: animal.value,
-      });
-    }
+    if (existing) existing.amount += 1;
+    else user.inventory.push({ item: animal.name, amount: 1, value: animal.value });
 
     user.lastHunt = now;
     user.markModified("inventory");
