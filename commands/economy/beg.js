@@ -114,7 +114,7 @@ module.exports = {
           inline: true,
         }
       )
-      .setFooter({ text: "Beg System • Economy v2" });
+      .setFooter({ text: "Beg System • Economyno" });
 
     return interaction.reply({ embeds: [embed] });
   },
