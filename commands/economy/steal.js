@@ -71,7 +71,7 @@ module.exports = {
       return interaction.reply("❌ Target has no money");
 
     // ================= FAIL CHANCE =================
-    let failChance = 0.35;
+    let failChance = 0.65;
 
     if (user.perk === "Robber") {
       failChance = 0.5; // base perk definition you gave
